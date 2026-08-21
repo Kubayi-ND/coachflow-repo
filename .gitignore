@@ -1,0 +1,36 @@
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+
+# Python / backend
+__pycache__/
+*.pyc
+.venv/
+venv/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/*.egg-info/
+.uv/
+*.tsbuildinfo
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Apps Script
+infra/apps-script/**/.clasp.json

@@ -1,0 +1,28 @@
+{
+  "sessionTypes": [
+    {
+      "id": "one_on_one",
+      "label": "1-on-1 Executive Coaching",
+      "namingPattern": "Grow Executive Coaching [Coachee Name]",
+      "leadTimeWorkingDays": 3
+    },
+    {
+      "id": "quarterly_review",
+      "label": "Quarterly Strategic Review",
+      "namingPattern": "Grow Quarterly Strategic Review",
+      "leadTimeWorkingDays": 5
+    },
+    {
+      "id": "annual_review",
+      "label": "Annual Strategic Review",
+      "namingPattern": "Grow Annual Strategic Review",
+      "leadTimeWorkingDays": 10
+    },
+    {
+      "id": "monthly_council",
+      "label": "Monthly Strategic Council",
+      "namingPattern": "Grow Monthly Strategic Council",
+      "leadTimeWorkingDays": 5
+    }
+  ]
+}

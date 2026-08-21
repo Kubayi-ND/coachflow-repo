@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-paper: 246 245 241;
+  --color-ink: 31 38 35;
+  --color-teal: 47 111 98;
+  --color-teal-soft: 228 238 235;
+  --color-amber: 185 122 34;
+  --color-slate: 91 103 99;
+}
+
+.dark {
+  --color-paper: 20 32 28;
+  --color-ink: 232 230 223;
+  --color-teal: 111 184 165;
+  --color-teal-soft: 28 51 44;
+  --color-amber: 224 172 92;
+  --color-slate: 154 166 160;
+}
+
+body {
+  @apply bg-paper text-ink font-body;
+}
+
+h1,
+h2,
+h3 {
+  @apply font-display;
+}
+
+/* Every column of numbers (metrics, countdowns, token costs) uses tabular
+   figures so digits align — frontend/CLAUDE.md. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
