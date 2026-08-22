@@ -7,7 +7,7 @@ from jose import jwt
 
 from app.core.config import get_settings
 from app.db.repository import get_user_by_id
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, UserStatus
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -47,12 +47,21 @@ async def get_current_user(
     user = await get_user_by_id(UUID(claims["sub"]))
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not provisioned")
+    if user.status != UserStatus.ACTIVE:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Account is not active")
     return user
 
 
 async def require_admin(user: User = Depends(get_current_user)) -> User:
     if user.role != UserRole.ADMIN:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin role required")
+    return user
+
+
+async def require_coach_or_admin(user: User = Depends(get_current_user)) -> User:
+    """Allow coaching staff to use the shared context and prompt library."""
+    if user.role not in (UserRole.ADMIN, UserRole.GENERAL):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Coach access required")
     return user
 
 

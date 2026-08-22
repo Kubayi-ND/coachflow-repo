@@ -17,6 +17,8 @@ dependencies = [
     "python-jose[cryptography]>=3.3",
     "cryptography>=42.0",
     "httpx>=0.27",
+    "pypdf>=4.2",
+    "python-docx>=1.1",
 ]
 
 [project.optional-dependencies]
@@ -59,7 +61,7 @@ warn_return_any = false
 disallow_any_generics = false
 
 [[tool.mypy.overrides]]
-module = ["googleapiclient.*", "apscheduler.*", "google.generativeai.*"]
+module = ["googleapiclient.*", "apscheduler.*", "google.generativeai.*", "docx.*"]
 ignore_missing_imports = true
 disallow_untyped_calls = false
 

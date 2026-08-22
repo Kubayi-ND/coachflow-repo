@@ -13,7 +13,7 @@ from app.session_types_generated import SessionType
 async def generate_scorecard_and_summary(
     session_id: UUID, client_id: UUID, session_type: SessionType, transcript_text: str
 ) -> tuple[dict[str, Any], str]:
-    context = await build_context(client_id, session_type, exclude_session_id=session_id)
+    context = await build_context(client_id, session_type, exclude_session_id=session_id, transcript_text=transcript_text)
     template = await get_current_prompt_template(session_type, "post")
     if template is None:
         raise RuntimeError(f"No current prompt template for {session_type.value}/post")

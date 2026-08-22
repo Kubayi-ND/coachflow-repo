@@ -1,22 +1,33 @@
 import type { ReactNode } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { AccountPage } from "@/features/account/AccountPage";
-import { AdminPanel } from "@/features/admin/AdminPanel";
+import { ImportPage } from "@/features/admin/ImportPage";
+import { UsersPage } from "@/features/admin/UsersPage";
 import { ApprovalsInbox } from "@/features/approvals/ApprovalsInbox";
+import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
+import { LoginPage } from "@/features/auth/LoginPage";
+import { SetPasswordPage } from "@/features/auth/SetPasswordPage";
 import { CalendarView } from "@/features/calendar/CalendarView";
 import { ClientDetail } from "@/features/clients/ClientDetail";
 import { ClientsDirectory } from "@/features/clients/ClientsDirectory";
-import { LoginPage } from "@/features/auth/LoginPage";
-import { MetricsDashboard } from "@/features/metrics/MetricsDashboard";
+import { ContextLibraryPage } from "@/features/context-library/ContextLibraryPage";
 import { ScorecardView } from "@/features/scorecards/ScorecardView";
 import { useRole } from "@/hooks/useRole";
 import { useSession } from "@/hooks/useSession";
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading } = useSession();
+  const { mustResetPassword, isLoading: roleLoading } = useRole();
+  const location = useLocation();
+
   if (loading) return null;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  // Admin-provisioned accounts (temporary password) must set their own
+  // password before touching anything else in the dashboard.
+  if (!roleLoading && mustResetPassword && location.pathname !== "/set-password") {
+    return <Navigate to="/set-password" replace />;
+  }
   return <>{children}</>;
 }
 
@@ -30,10 +41,19 @@ function AdminRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function CoachLibraryRoute({ children }: { children: ReactNode }) {
+  const { user, isLoading } = useRole();
+  if (isLoading) return null;
+  if (user?.role !== "general" && user?.role !== "admin") return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 export function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/set-password" element={<SetPasswordPage />} />
       <Route
         path="/"
         element={
@@ -75,14 +95,6 @@ export function AppRouter() {
         }
       />
       <Route
-        path="/metrics"
-        element={
-          <RequireAuth>
-            <MetricsDashboard />
-          </RequireAuth>
-        }
-      />
-      <Route
         path="/account"
         element={
           <RequireAuth>
@@ -91,11 +103,31 @@ export function AppRouter() {
         }
       />
       <Route
-        path="/admin"
+        path="/context-library"
+        element={
+          <RequireAuth>
+            <CoachLibraryRoute>
+              <ContextLibraryPage />
+            </CoachLibraryRoute>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/users"
         element={
           <RequireAuth>
             <AdminRoute>
-              <AdminPanel />
+              <UsersPage />
+            </AdminRoute>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/imports"
+        element={
+          <RequireAuth>
+            <AdminRoute>
+              <ImportPage />
             </AdminRoute>
           </RequireAuth>
         }

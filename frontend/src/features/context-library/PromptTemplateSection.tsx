@@ -25,7 +25,7 @@ type TemplateFormValues = z.infer<typeof templateSchema>;
 
 const PHASES = ["pre", "post"] as const;
 
-/** Admin editor for prompt templates — these rows are the live source
+/** Context Library page editor for prompt templates — these rows are the live source
  * draft_generator.py / scorecard_generator.py read at generation time, so
  * posting a new version here actually changes what the AI sends to Gemini.
  * Append-only, same shape as the Context Library editor: edits post a new
@@ -39,7 +39,7 @@ export function PromptTemplateSection() {
 
   return (
     <section>
-      <h2 className="mb-2 text-lg">Prompt templates</h2>
+      <h2 className="mb-2 text-lg">Prompt library</h2>
       {isLoading ? (
         <RowsSkeleton count={4} />
       ) : (
@@ -148,11 +148,11 @@ function PostVersionForm({
 
   return (
     <form onSubmit={onSubmit} className="mt-3 space-y-2 border-t border-slate/10 pt-3">
-      <Input {...register("title")} />
+      <Input error={!!errors.title} {...register("title")} />
       {errors.title && <p className="text-xs text-amber">{errors.title.message}</p>}
-      <Textarea rows={10} className="font-mono" {...register("body")} />
+      <Textarea rows={10} className="font-mono" error={!!errors.body} {...register("body")} />
       {errors.body && <p className="text-xs text-amber">{errors.body.message}</p>}
-      <Button type="submit" variant="secondary" disabled={postVersion.isPending}>
+      <Button type="submit" variant="secondary" isLoading={postVersion.isPending}>
         Post version
       </Button>
     </form>
@@ -191,11 +191,17 @@ function CreateTemplateRow({ sessionType, phase }: { sessionType: SessionTypeId;
       </div>
       {creating && (
         <form onSubmit={onSubmit} className="mt-3 space-y-2">
-          <Input placeholder="Heading" {...register("title")} />
+          <Input placeholder="Heading" error={!!errors.title} {...register("title")} />
           {errors.title && <p className="text-xs text-amber">{errors.title.message}</p>}
-          <Textarea rows={10} className="font-mono" placeholder="Prompt body / instructions" {...register("body")} />
+          <Textarea
+            rows={10}
+            className="font-mono"
+            placeholder="Prompt body / instructions"
+            error={!!errors.body}
+            {...register("body")}
+          />
           {errors.body && <p className="text-xs text-amber">{errors.body.message}</p>}
-          <Button type="submit" disabled={createTemplate.isPending}>
+          <Button type="submit" isLoading={createTemplate.isPending}>
             Create
           </Button>
         </form>

@@ -40,8 +40,8 @@ export function AccountPage() {
 
       {!isAdmin && <AssignedClients />}
 
-      <Button variant="secondary" onClick={handleLogout} disabled={logout.isPending}>
-        {logout.isPending ? "Logging out..." : "Log out"}
+      <Button variant="secondary" onClick={handleLogout} isLoading={logout.isPending}>
+        Log out
       </Button>
     </div>
   );

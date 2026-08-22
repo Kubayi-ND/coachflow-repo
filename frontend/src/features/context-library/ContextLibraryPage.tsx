@@ -2,11 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Pill } from "@/components/ui/Pill";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { apiFetch } from "@/lib/apiClient";
 import { SESSION_TYPES } from "@/types";
 import type { SessionTypeId } from "@/types";
+import { useRole } from "@/hooks/useRole";
 
 import { ContextLibrarySection } from "./ContextLibrarySection";
 import { PromptTemplateSection } from "./PromptTemplateSection";
@@ -26,11 +28,13 @@ interface TenantStatus {
 /** Tenant credential status, reminder-rule editor, prompt template editor,
  * and Context Library editor — the templates that replaced Obsidian
  * (frontend/CLAUDE.md). User management is not yet built. */
-export function AdminPanel() {
+export function ContextLibraryPage() {
+  const { isAdmin } = useRole();
+
   return (
     <div className="space-y-10">
-      <h1 className="text-2xl">Admin</h1>
-      <TenantStatusSection />
+      <h1 className="text-2xl">Context Library</h1>
+      {isAdmin && <TenantStatusSection />}
       <ReminderRulesSection />
       <PromptTemplateSection />
       <ContextLibrarySection />
@@ -87,6 +91,8 @@ function ReminderRulesSection() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "reminder-rules"] }),
   });
 
+  const savingSessionType = updateRule.isPending ? updateRule.variables?.sessionType : null;
+
   return (
     <section>
       <h2 className="text-lg mb-2">Reminder rules</h2>
@@ -95,7 +101,12 @@ function ReminderRulesSection() {
       ) : (
         <div className="space-y-2">
           {rules?.map((rule) => (
-            <ReminderRuleRow key={rule.sessionType} rule={rule} onSave={(next) => updateRule.mutate(next)} />
+            <ReminderRuleRow
+              key={rule.sessionType}
+              rule={rule}
+              isSaving={savingSessionType === rule.sessionType}
+              onSave={(next) => updateRule.mutate(next)}
+            />
           ))}
         </div>
       )}
@@ -121,7 +132,15 @@ function RowsSkeleton({ count }: { count: number }) {
   );
 }
 
-function ReminderRuleRow({ rule, onSave }: { rule: ReminderRule; onSave: (rule: ReminderRule) => void }) {
+function ReminderRuleRow({
+  rule,
+  isSaving,
+  onSave,
+}: {
+  rule: ReminderRule;
+  isSaving: boolean;
+  onSave: (rule: ReminderRule) => void;
+}) {
   const [leadTime, setLeadTime] = useState(rule.leadTimeWorkingDays);
 
   return (
@@ -131,10 +150,10 @@ function ReminderRuleRow({ rule, onSave }: { rule: ReminderRule; onSave: (rule: 
         <p className="text-xs text-slate">{rule.namingPattern}</p>
       </div>
       <div className="flex items-center gap-2">
-        <input
+        <Input
           type="number"
           min={0}
-          className="w-16 rounded-md border border-slate/30 bg-transparent px-2 py-1 text-sm tabular-nums"
+          className="w-16 tabular-nums"
           value={leadTime}
           onChange={(e) => setLeadTime(Number(e.target.value))}
         />
@@ -143,6 +162,7 @@ function ReminderRuleRow({ rule, onSave }: { rule: ReminderRule; onSave: (rule: 
           variant="secondary"
           onClick={() => onSave({ ...rule, leadTimeWorkingDays: leadTime })}
           disabled={leadTime === rule.leadTimeWorkingDays}
+          isLoading={isSaving}
         >
           Save
         </Button>

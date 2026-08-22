@@ -24,13 +24,26 @@ body {
   @apply bg-paper text-ink font-body;
 }
 
+::selection {
+  background-color: rgb(var(--color-teal) / 0.25);
+  color: rgb(var(--color-ink));
+}
+
+/* Baseline for interactive elements outside the shared ui/ primitives
+   (nav links, card links) — Button/Input/Select/Textarea define their own
+   ring treatment, which takes precedence over this outline. */
+:focus-visible {
+  outline: 2px solid rgb(var(--color-teal));
+  outline-offset: 2px;
+}
+
 h1,
 h2,
 h3 {
   @apply font-display;
 }
 
-/* Every column of numbers (metrics, countdowns, token costs) uses tabular
+/* Every column of numbers (countdowns and token costs) uses tabular
    figures so digits align — frontend/CLAUDE.md. */
 .tabular-nums {
   font-variant-numeric: tabular-nums;

@@ -27,7 +27,7 @@ const entrySchema = z.object({
 });
 type EntryFormValues = z.infer<typeof entrySchema>;
 
-/** Admin editor for the Context Library — append-only: every save posts a
+/** Editor for the Context Library entries — append-only: every save posts a
  * new version rather than overwriting, and the heading is required because
  * context_builder.py surfaces it above each entry's body in the assembled
  * prompt so the model can judge relevance among the entries it's given. */
@@ -122,15 +122,15 @@ function NewEntryForm({ clients, onDone }: { clients: Client[]; onDone: () => vo
       </div>
       <div>
         <label className="mb-1 block text-xs text-slate">Heading</label>
-        <Input placeholder="e.g. 'GROW Model — Goal-Setting Techniques'" {...register("title")} />
+        <Input placeholder="e.g. 'GROW Model — Goal-Setting Techniques'" error={!!errors.title} {...register("title")} />
         {errors.title && <p className="mt-1 text-xs text-amber">{errors.title.message}</p>}
       </div>
       <div>
         <label className="mb-1 block text-xs text-slate">Body</label>
-        <Textarea rows={6} {...register("body")} />
+        <Textarea rows={6} error={!!errors.body} {...register("body")} />
         {errors.body && <p className="mt-1 text-xs text-amber">{errors.body.message}</p>}
       </div>
-      <Button type="submit" disabled={createEntry.isPending}>
+      <Button type="submit" isLoading={createEntry.isPending}>
         Create entry
       </Button>
     </form>
@@ -221,11 +221,11 @@ function PostVersionForm({
 
   return (
     <form onSubmit={onSubmit} className="mt-3 space-y-2 border-t border-slate/10 pt-3">
-      <Input {...register("title")} />
+      <Input error={!!errors.title} {...register("title")} />
       {errors.title && <p className="text-xs text-amber">{errors.title.message}</p>}
-      <Textarea rows={6} {...register("body")} />
+      <Textarea rows={6} error={!!errors.body} {...register("body")} />
       {errors.body && <p className="text-xs text-amber">{errors.body.message}</p>}
-      <Button type="submit" variant="secondary" disabled={postVersion.isPending}>
+      <Button type="submit" variant="secondary" isLoading={postVersion.isPending}>
         Post version
       </Button>
     </form>

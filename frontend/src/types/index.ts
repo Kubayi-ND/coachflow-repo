@@ -6,6 +6,23 @@ export * from "./sessionTypes.generated";
 
 export type TenantId = "tenant_a" | "tenant_b";
 export type UserRole = "admin" | "general";
+export type UserStatus = "active" | "suspended" | "deleted";
+
+export interface AppUser {
+  id: string;
+  email: string;
+  role: UserRole;
+  status: UserStatus;
+  mustResetPassword: boolean;
+  assignedClientIds: string[];
+}
+
+/** POST /api/admin/users response — the temporary password is returned once
+ * and never stored, so the admin must copy it to hand to the coach directly. */
+export interface CreateUserResult {
+  user: AppUser;
+  temporaryPassword: string;
+}
 
 export interface Client {
   id: string;
@@ -28,6 +45,14 @@ export interface Session {
   triggerDate: string;
   transcriptId: string | null;
   status: SessionStatus;
+}
+
+export interface SessionPrep {
+  session: Session;
+  prep: string;
+  scorecard: Record<string, unknown> | null;
+  citations: Record<string, unknown>[];
+  history: { id: string; eventDate: string; summary: string | null }[];
 }
 
 export interface UnmatchedEvent {
@@ -79,12 +104,38 @@ export interface PromptTemplate {
   createdAt: string;
 }
 
-export interface MetricsSummary {
-  hoursSaved: number;
-  avgSessionEndToDraftReadyMinutes: number;
-  geminiTokenCostUsd: number;
-  billableHourValueProtectedUsd: number;
-  transcriptParseSuccessRateBySource: Record<string, number>;
-  draftApprovalRateWithoutEdits: number;
-  unmatchedEventsCount: number;
+export type ImportSource = "calendar" | "context_library" | "client_notes" | "transcripts";
+export type ImportJobStatus = "running" | "completed" | "failed";
+export type ImportItemStatus = "imported" | "failed" | "unmatched_client";
+
+/** Backs the Admin > Import page's one-time Drive backfill of pre-existing
+ * calendar/context-library/client-notes/transcript folders. Not part of the
+ * ongoing ingestion pipeline (live Calendar poll, transcript inbox webhook),
+ * which keeps running unchanged after a backfill completes. */
+export interface ImportJob {
+  id: string;
+  tenantId: TenantId;
+  source: ImportSource;
+  status: ImportJobStatus;
+  itemsTotal: number;
+  itemsSucceeded: number;
+  itemsFailed: number;
+  errorMessage: string | null;
+  startedAt: string;
+  completedAt: string | null;
 }
+
+export interface ImportItem {
+  id: string;
+  jobId: string;
+  tenantId: TenantId;
+  source: ImportSource;
+  driveFileId: string;
+  fileName: string;
+  mimeType: string;
+  status: ImportItemStatus;
+  clientId: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+}
+

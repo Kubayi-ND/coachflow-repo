@@ -2,6 +2,8 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
+from pydantic import Field
+
 from app.models.base import CamelModel
 from app.session_types_generated import SessionType
 
@@ -22,6 +24,20 @@ class Session(CamelModel):
     trigger_date: datetime
     transcript_id: UUID | None = None
     status: SessionStatus
+
+
+class SessionHistoryItem(CamelModel):
+    id: UUID
+    event_date: datetime
+    summary: str | None = None
+
+
+class SessionPrep(CamelModel):
+    session: Session
+    prep: str
+    scorecard: dict[str, object] | None = None
+    citations: list[dict[str, object]] = Field(default_factory=list)
+    history: list[SessionHistoryItem] = Field(default_factory=list)
 
 
 class UnmatchedEvent(CamelModel):

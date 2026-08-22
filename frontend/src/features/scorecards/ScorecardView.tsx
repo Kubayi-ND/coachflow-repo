@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
+import { JsonTree } from "@/components/ui/JsonTree";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { apiFetch } from "@/lib/apiClient";
 import type { Scorecard } from "@/types";
@@ -22,19 +23,20 @@ export function ScorecardView() {
   if (!scorecard) return <p className="text-slate">No scorecard found for this session.</p>;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <h1 className="text-2xl">Scorecard</h1>
-      <pre className="rounded-md border border-slate/20 p-4 text-xs overflow-auto">
-        {JSON.stringify(scorecard.structuredCritique, null, 2)}
-      </pre>
-      <section>
-        <h2 className="text-lg mb-2">Citations</h2>
-        <ul className="space-y-1 text-sm text-slate">
-          {scorecard.citations.map((citation, i) => (
-            <li key={i}>{JSON.stringify(citation)}</li>
-          ))}
-        </ul>
-      </section>
+      <div className="rounded-md border border-slate/20 p-4">
+        <JsonTree value={scorecard.structuredCritique} />
+      </div>
+      {scorecard.citations.length > 0 && (
+        <section>
+          <h2 className="text-lg mb-2">Citations</h2>
+          <p className="mb-2 text-xs text-slate">Every claim above should trace back to one of these Context Library sections.</p>
+          <div className="rounded-md border border-slate/20 p-4">
+            <JsonTree value={scorecard.citations} />
+          </div>
+        </section>
+      )}
     </div>
   );
 }

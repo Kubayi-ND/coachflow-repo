@@ -17,6 +17,9 @@ class Settings(BaseSettings):
 
     gemini_api_key: str
 
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.1:8b"
+
     token_vault_encryption_key: str
 
     google_oauth_client_id_tenant_a: str

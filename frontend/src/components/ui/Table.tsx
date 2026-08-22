@@ -1,7 +1,7 @@
 import { flexRender, type Table as TanstackTable } from "@tanstack/react-table";
 
-/** Thin wrapper around TanStack Table's headless API — used by the client
- * list, session history, and Metrics detail tables (frontend/CLAUDE.md). */
+/** Thin wrapper around TanStack Table's headless API — used by client lists
+ * and session history tables. */
 export function Table<T>({ table }: { table: TanstackTable<T> }) {
   return (
     <table className="w-full text-left text-sm">
