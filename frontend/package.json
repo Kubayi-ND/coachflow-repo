@@ -16,6 +16,7 @@
     "gen:session-types": "node --experimental-strip-types ../shared/types/scripts/generate-session-types.ts"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.9.0",
     "@supabase/supabase-js": "^2.45.0",
     "@tanstack/react-query": "^5.51.0",
     "@tanstack/react-table": "^8.19.0",
@@ -28,7 +29,6 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@hookform/resolvers": "^3.9.0",
     "@playwright/test": "^1.45.0",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^16.0.0",

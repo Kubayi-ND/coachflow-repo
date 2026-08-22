@@ -35,7 +35,7 @@ async def build_context(client_id: UUID, session_type: SessionType, exclude_sess
     client_profile = client_row[0] if client_row else {}
 
     context_rows = rows_of(
-        supabase.table("context_library")
+        supabase.table("context_library_current")
         .select("*")
         .or_(f"client_id.eq.{client_id},client_id.is.null")
         .execute()

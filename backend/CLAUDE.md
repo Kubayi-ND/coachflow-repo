@@ -40,13 +40,7 @@ backend/
 │   │       ├── gmail.py
 │   │       └── tasks.py
 │   ├── ai/
-│   │   ├── gemini_client.py
-│   │   └── prompts/                 ← one template per (session_type × pre/post), versioned
-│   │       ├── one_on_one_pre.py
-│   │       ├── one_on_one_post.py
-│   │       ├── quarterly_review.py
-│   │       ├── annual_review.py
-│   │       └── monthly_council.py
+│   │   └── gemini_client.py
 │   ├── services/
 │   │   ├── calendar_scanner.py      ← naming-convention match + working-day lead-time calc
 │   │   ├── transcript_normalizer.py ← Plaud text / Gemini Meet transcript → common schema
@@ -71,7 +65,7 @@ backend/
 
 **3. Normalization.** `transcript_normalizer.py` converts whatever shape the source hands back into one schema: a list of `{speaker, timestamp, text}`. Use the calendar event's attendee list as ground truth to resolve generic speaker labels to the actual coach/coachee names where the source doesn't already provide them. Store both the raw file reference and the normalized text in the `transcripts` table with a `parse_status` (`ok` / `partial` / `failed`) — never let a partial parse silently block the pipeline; log it and still attempt generation with a clear "unverified transcript" flag carried into the draft.
 
-**4. Context assembly + Gemini.** `context_builder.py` queries: the client's profile, the relevant slice of `context_library` (ICF competencies + GROW model docs, plus the client's own coaching profile), and prior `sessions` **of the same type only** — a 1-on-1 draft must never pull strategic-council history and vice versa. It hands this plus the matching prompt template from `ai/prompts/` to `gemini_client.py`, requesting structured JSON output (not free text) for anything that becomes a scorecard, so the frontend can render it deterministically rather than parsing prose.
+**4. Context assembly + Gemini.** `context_builder.py` queries: the client's profile, the relevant slice of `context_library_current` (ICF competencies + GROW model docs, plus the client's own coaching profile), and prior `sessions` **of the same type only** — a 1-on-1 draft must never pull strategic-council history and vice versa. `draft_generator.py`/`scorecard_generator.py` fetch the matching `(session_type, phase)` prompt via `db/repository.py`'s `get_current_prompt_template` — both `context_library` and `prompt_templates` are append-only tables (an edit posts a new version rather than overwriting; the `_current` view exposes just the latest per `entry_group_id`) managed from the Admin tab's Context Library and Prompt Template editors. That resolved template body is handed to `gemini_client.py`, requesting structured JSON output (not free text) for anything that becomes a scorecard, so the frontend can render it deterministically rather than parsing prose.
 
 **5. Scorecards and drafts.** `scorecard_generator.py` produces the internal-only ICF/GROW critique (never approval-gated — it's internal). `draft_generator.py` produces every client-facing artifact (reminder, summary, questionnaire, prep email), always stamped with the session's `tenant_id`, always written to `ai_drafts` with `status = pending`. Nothing in this service ever calls Gmail directly.
 
@@ -96,10 +90,11 @@ Every route depends on a `get_current_user` dependency in `core/security.py` tha
 | `sessions` | `id`, `client_id`, `type` (`one_on_one`/`quarterly_review`/`annual_review`/`monthly_council`), `tenant_id`, `event_date`, `trigger_date`, `transcript_id`, `status` |
 | `unmatched_events` | `id`, `tenant_id`, `raw_event_summary`, `event_date`, `resolved_session_type` (nullable) |
 | `transcripts` | `id`, `file_ref`, `source` (`plaud`/`gemini_meet`), `normalized_text`, `parse_status` |
-| `context_library` | `id`, `client_id` (nullable = org-wide), `title`, `body`, `version` |
+| `context_library` | `id`, `entry_group_id`, `client_id` (nullable = org-wide), `title` (required heading), `body`, `version` — append-only, edits insert a new row under the same `entry_group_id`; `context_library_current` view exposes the latest per group |
 | `scorecards` | `id`, `session_id`, `structured_critique` (jsonb), `citations` (jsonb) |
 | `ai_drafts` | `id`, `session_id`, `draft_type`, `tenant_id`, `body`, `status` (`pending`/`sent`/`rejected`), `rejection_reason` |
 | `reminder_rules` | `session_type`, `lead_time_working_days`, `naming_pattern` |
+| `prompt_templates` | `id`, `entry_group_id`, `session_type`, `phase` (`pre`/`post`), `title`, `body`, `version` — same append-only shape as `context_library`; `prompt_templates_current` is what generation actually reads |
 | `tasks_sync` | `scorecard_id`, `google_task_id` |
 | `metrics_log` | `id`, `session_id`, `gemini_tokens`, `gemini_latency_ms`, `gemini_cost_usd` |
 | `users` | `id` (= Supabase Auth id), `role` (`admin`/`general`), `assigned_client_ids` (array) |
@@ -132,7 +127,14 @@ APP_BASE_URL=
 | GET | `/api/scorecards/{session_id}` | Structured critique + citations |
 | GET | `/api/metrics` | Aggregated KPIs for the Metrics view |
 | GET/PUT | `/api/admin/reminder-rules` | Lead time + naming pattern per session type |
-| GET/PUT | `/api/admin/prompt-templates` | The Obsidian-replacement prompt library |
+| GET | `/api/admin/prompt-templates` | Current (latest-version) prompt templates — the Obsidian-replacement prompt library, and the live source draft/scorecard generation reads |
+| GET | `/api/admin/prompt-templates/{entry_group_id}/history` | All versions of one prompt template, newest first |
+| POST | `/api/admin/prompt-templates` | Create a prompt template for a `(session_type, phase)` slot that doesn't have one yet |
+| POST | `/api/admin/prompt-templates/{entry_group_id}/versions` | Post a new version (append-only — never overwrites) |
+| GET | `/api/admin/context-library?client_id=` | Current Context Library entries, optionally scoped to a client (org-wide entries always included) |
+| GET | `/api/admin/context-library/{entry_group_id}/history` | All versions of one entry, newest first |
+| POST | `/api/admin/context-library` | Create a Context Library entry (org-wide or client-specific) |
+| POST | `/api/admin/context-library/{entry_group_id}/versions` | Post a new version (append-only — never overwrites) |
 | GET/POST | `/api/admin/tenants` | Tenant connection status (never returns raw tokens) |
 | POST | `/webhooks/drive` | Apps Script → new file in a tenant's Inbox folder |
 | POST | `/webhooks/calendar` | Apps Script → calendar changed (optional, if not purely polling) |

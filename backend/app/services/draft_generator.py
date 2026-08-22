@@ -6,23 +6,18 @@ directly (backend/CLAUDE.md phase 5) — only POST /api/drafts/{id}/approve does
 from uuid import UUID
 
 from app.ai.gemini_client import generate
-from app.ai.prompts import annual_review, monthly_council, one_on_one_pre, quarterly_review
-from app.db.repository import get_supabase, row_of
+from app.db.repository import get_current_prompt_template, get_supabase, row_of
 from app.models.draft import DraftType
 from app.services.context_builder import build_context
 from app.session_types_generated import SessionType
 
-_PRE_TEMPLATES = {
-    SessionType.ONE_ON_ONE: one_on_one_pre.TEMPLATE,
-    SessionType.QUARTERLY_REVIEW: quarterly_review.PRE_TEMPLATE,
-    SessionType.ANNUAL_REVIEW: annual_review.PRE_TEMPLATE,
-    SessionType.MONTHLY_COUNCIL: monthly_council.PRE_TEMPLATE,
-}
-
 
 async def generate_prep_email_draft(session_id: UUID, client_id: UUID, tenant_id: str, session_type: SessionType) -> UUID:
     context = await build_context(client_id, session_type)
-    prompt = _PRE_TEMPLATES[session_type].format(**context.as_prompt_vars())
+    template = await get_current_prompt_template(session_type, "pre")
+    if template is None:
+        raise RuntimeError(f"No current prompt template for {session_type.value}/pre")
+    prompt = template["body"].format(**context.as_prompt_vars())
 
     result = await generate(prompt)
     return _write_pending_draft(session_id, tenant_id, DraftType.PREP_EMAIL, result.text)
