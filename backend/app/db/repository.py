@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.models.client import Client as ClientModel
 from app.models.draft import AiDraft, DraftStatus
 from app.models.session import Session, UnmatchedEvent
-from app.models.user import User
+from app.models.user import User, UserRole, UserStatus
 from app.session_types_generated import SessionType
 
 
@@ -44,6 +44,37 @@ def row_of(response: Any) -> dict[str, Any] | None:
 
 async def get_user_by_id(user_id: UUID) -> User | None:
     result = get_supabase().table("users").select("*").eq("id", str(user_id)).limit(1).execute()
+    row = row_of(result)
+    return User(**row) if row else None
+
+
+async def get_user_by_email(email: str) -> User | None:
+    result = get_supabase().table("users").select("*").eq("email", email).limit(1).execute()
+    row = row_of(result)
+    return User(**row) if row else None
+
+
+async def list_users(include_deleted: bool = False) -> list[User]:
+    query = get_supabase().table("users").select("*").order("created_at", desc=True)
+    if not include_deleted:
+        query = query.neq("status", UserStatus.DELETED.value)
+    return [User(**row) for row in rows_of(query.execute())]
+
+
+async def create_user_record(user_id: UUID, email: str, role: UserRole) -> User:
+    result = (
+        get_supabase()
+        .table("users")
+        .insert({"id": str(user_id), "email": email, "role": role.value, "status": UserStatus.ACTIVE.value})
+        .execute()
+    )
+    row = row_of(result)
+    assert row is not None
+    return User(**row)
+
+
+async def update_user_status(user_id: UUID, new_status: UserStatus) -> User | None:
+    result = get_supabase().table("users").update({"status": new_status.value}).eq("id", str(user_id)).execute()
     row = row_of(result)
     return User(**row) if row else None
 

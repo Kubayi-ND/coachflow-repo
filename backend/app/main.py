@@ -4,7 +4,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import admin, clients, drafts, metrics, scorecards, sessions, users, webhooks
+from app.api.routes import (
+    admin,
+    auth,
+    clients,
+    drafts,
+    metrics,
+    scorecards,
+    sessions,
+    users,
+    webhooks,
+)
 from app.jobs.scheduler import start_scheduler, stop_scheduler
 
 
@@ -25,6 +35,7 @@ app.add_middleware(
 )
 
 app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(clients.router, prefix="/api/clients", tags=["clients"])
 app.include_router(sessions.router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(drafts.router, prefix="/api/drafts", tags=["drafts"])

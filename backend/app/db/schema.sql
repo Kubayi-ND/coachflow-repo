@@ -1,10 +1,15 @@
 -- CoachFlow schema — source of truth DDL (backend/CLAUDE.md).
 -- Apply via Supabase migrations, or directly against local Postgres:
 --   psql "$DATABASE_URL" -f app/db/schema.sql
+--
+-- Already provisioned a DB before the users.status column existed? Run by hand:
+--   create type user_status as enum ('active', 'suspended', 'deleted');
+--   alter table users add column status user_status not null default 'active';
 
 create extension if not exists "pgcrypto";
 
 create type user_role as enum ('admin', 'general');
+create type user_status as enum ('active', 'suspended', 'deleted');
 create type session_type as enum ('one_on_one', 'quarterly_review', 'annual_review', 'monthly_council');
 create type session_status as enum ('upcoming', 'prep_generating', 'ready_for_review', 'sent');
 create type transcript_source as enum ('plaud', 'gemini_meet');
@@ -22,11 +27,16 @@ create table tenants (
     created_at timestamptz not null default now()
 );
 
--- Mirrors Supabase Auth users; id must equal the auth.users id.
+-- Mirrors Supabase Auth users; id must equal the auth.users id. status is a
+-- single enum covering both suspend and soft-delete: 'suspended' and
+-- 'deleted' both block authentication (enforced in core/security.py's
+-- get_current_user), the only difference is 'deleted' users are also
+-- excluded from the admin users list.
 create table users (
     id uuid primary key,
     email text not null unique,
     role user_role not null default 'general',
+    status user_status not null default 'active',
     assigned_client_ids uuid[] not null default '{}',
     created_at timestamptz not null default now()
 );

@@ -27,7 +27,7 @@ const entrySchema = z.object({
 });
 type EntryFormValues = z.infer<typeof entrySchema>;
 
-/** Admin editor for the Context Library — append-only: every save posts a
+/** Editor for the Context Library entries — append-only: every save posts a
  * new version rather than overwriting, and the heading is required because
  * context_builder.py surfaces it above each entry's body in the assembled
  * prompt so the model can judge relevance among the entries it's given. */

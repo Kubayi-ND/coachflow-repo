@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/Button";
 import { useSession } from "@/hooks/useSession";
@@ -53,6 +53,9 @@ export function LoginPage() {
             className="w-full rounded-md border border-slate/30 px-3 py-2 bg-transparent"
           />
         </div>
+        <Link to="/forgot-password" className="block text-xs text-teal hover:underline">
+          Forgot password?
+        </Link>
         {error && <p className="text-sm text-amber">{error}</p>}
         <Button type="submit" disabled={submitting} className="w-full">
           {submitting ? "Signing in..." : "Sign in"}

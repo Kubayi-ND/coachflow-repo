@@ -25,7 +25,7 @@ type TemplateFormValues = z.infer<typeof templateSchema>;
 
 const PHASES = ["pre", "post"] as const;
 
-/** Admin editor for prompt templates — these rows are the live source
+/** Context Library page editor for prompt templates — these rows are the live source
  * draft_generator.py / scorecard_generator.py read at generation time, so
  * posting a new version here actually changes what the AI sends to Gemini.
  * Append-only, same shape as the Context Library editor: edits post a new

@@ -2,12 +2,15 @@ import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AccountPage } from "@/features/account/AccountPage";
-import { AdminPanel } from "@/features/admin/AdminPanel";
+import { UsersPage } from "@/features/admin/UsersPage";
 import { ApprovalsInbox } from "@/features/approvals/ApprovalsInbox";
+import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
+import { LoginPage } from "@/features/auth/LoginPage";
+import { SetPasswordPage } from "@/features/auth/SetPasswordPage";
 import { CalendarView } from "@/features/calendar/CalendarView";
 import { ClientDetail } from "@/features/clients/ClientDetail";
 import { ClientsDirectory } from "@/features/clients/ClientsDirectory";
-import { LoginPage } from "@/features/auth/LoginPage";
+import { ContextLibraryPage } from "@/features/context-library/ContextLibraryPage";
 import { MetricsDashboard } from "@/features/metrics/MetricsDashboard";
 import { ScorecardView } from "@/features/scorecards/ScorecardView";
 import { useRole } from "@/hooks/useRole";
@@ -34,6 +37,8 @@ export function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/set-password" element={<SetPasswordPage />} />
       <Route
         path="/"
         element={
@@ -91,11 +96,21 @@ export function AppRouter() {
         }
       />
       <Route
-        path="/admin"
+        path="/context-library"
         element={
           <RequireAuth>
             <AdminRoute>
-              <AdminPanel />
+              <ContextLibraryPage />
+            </AdminRoute>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <RequireAuth>
+            <AdminRoute>
+              <UsersPage />
             </AdminRoute>
           </RequireAuth>
         }

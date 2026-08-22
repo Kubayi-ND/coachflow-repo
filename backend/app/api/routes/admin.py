@@ -2,19 +2,24 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.core.config import get_settings
 from app.core.security import require_admin
 from app.db.repository import (
     create_context_library_entry,
     create_prompt_template,
+    create_user_record,
     get_context_library_history,
     get_prompt_template_history,
     get_supabase,
+    get_user_by_email,
     list_context_library_entries,
     list_prompt_templates,
+    list_users,
     post_context_library_version,
     post_prompt_template_version,
     row_of,
     rows_of,
+    update_user_status,
 )
 from app.models.admin import (
     PromptTemplate,
@@ -28,7 +33,8 @@ from app.models.context_library import (
     ContextLibraryEntryCreate,
     ContextLibraryEntryVersion,
 )
-from app.models.user import User
+from app.models.user import User, UserCreate, UserStatus
+from app.services.user_admin import invite_new_user
 
 router = APIRouter()
 
@@ -124,3 +130,50 @@ async def post_context_library_version_route(
 async def get_tenants(user: User = Depends(require_admin)) -> list[TenantStatus]:
     rows = rows_of(get_supabase().table("tenants").select("id,workspace_domain,connected").execute())
     return [TenantStatus(**row) for row in rows]
+
+
+@router.get("/users", response_model=list[User])
+async def get_users(user: User = Depends(require_admin)) -> list[User]:
+    return await list_users()
+
+
+@router.post("/users", response_model=User, status_code=status.HTTP_201_CREATED)
+async def create_user_route(body: UserCreate, user: User = Depends(require_admin)) -> User:
+    existing = await get_user_by_email(body.email)
+    if existing is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "A user with this email already exists")
+
+    settings = get_settings()
+    try:
+        new_id = await invite_new_user(body.email, f"{settings.app_base_url}/set-password")
+    except Exception as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Failed to send invite email") from exc
+
+    return await create_user_record(new_id, body.email, body.role)
+
+
+@router.post("/users/{user_id}/suspend", response_model=User)
+async def suspend_user_route(user_id: UUID, admin: User = Depends(require_admin)) -> User:
+    if user_id == admin.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cannot suspend your own account")
+    updated = await update_user_status(user_id, UserStatus.SUSPENDED)
+    if updated is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    return updated
+
+
+@router.post("/users/{user_id}/reactivate", response_model=User)
+async def reactivate_user_route(user_id: UUID, admin: User = Depends(require_admin)) -> User:
+    updated = await update_user_status(user_id, UserStatus.ACTIVE)
+    if updated is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    return updated
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user_route(user_id: UUID, admin: User = Depends(require_admin)) -> None:
+    if user_id == admin.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cannot delete your own account")
+    updated = await update_user_status(user_id, UserStatus.DELETED)
+    if updated is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")

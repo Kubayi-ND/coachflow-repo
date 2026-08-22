@@ -51,8 +51,19 @@ export function NavShell({ children }: { children: ReactNode }) {
             </NavLink>
           ))}
           {isAdmin && (
-            <NavLink to="/admin" className={({ isActive }) => (isActive ? "text-teal font-medium" : "text-slate")}>
+            <NavLink
+              to="/context-library"
+              className={({ isActive }) => (isActive ? "text-teal font-medium" : "text-slate")}
+            >
               Context Library
+            </NavLink>
+          )}
+          {isAdmin && (
+            <NavLink
+              to="/admin/users"
+              className={({ isActive }) => (isActive ? "text-teal font-medium" : "text-slate")}
+            >
+              Users
             </NavLink>
           )}
           <NavLink to="/account" className={({ isActive }) => (isActive ? "text-teal font-medium" : "text-slate")}>

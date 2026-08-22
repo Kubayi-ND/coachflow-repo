@@ -26,10 +26,10 @@ interface TenantStatus {
 /** Tenant credential status, reminder-rule editor, prompt template editor,
  * and Context Library editor — the templates that replaced Obsidian
  * (frontend/CLAUDE.md). User management is not yet built. */
-export function AdminPanel() {
+export function ContextLibraryPage() {
   return (
     <div className="space-y-10">
-      <h1 className="text-2xl">Admin</h1>
+      <h1 className="text-2xl">Context Library</h1>
       <TenantStatusSection />
       <ReminderRulesSection />
       <PromptTemplateSection />

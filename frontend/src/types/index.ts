@@ -6,6 +6,15 @@ export * from "./sessionTypes.generated";
 
 export type TenantId = "tenant_a" | "tenant_b";
 export type UserRole = "admin" | "general";
+export type UserStatus = "active" | "suspended" | "deleted";
+
+export interface AppUser {
+  id: string;
+  email: string;
+  role: UserRole;
+  status: UserStatus;
+  assignedClientIds: string[];
+}
 
 export interface Client {
   id: string;
