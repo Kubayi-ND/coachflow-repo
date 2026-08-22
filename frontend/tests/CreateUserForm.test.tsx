@@ -29,28 +29,33 @@ describe("CreateUserForm", () => {
     renderWithProviders(<CreateUserForm onDone={vi.fn()} />);
 
     fireEvent.change(screen.getByPlaceholderText("name@example.com"), { target: { value: "not-an-email" } });
-    fireEvent.click(screen.getByRole("button", { name: /send invite/i }));
+    fireEvent.click(screen.getByRole("button", { name: /create user/i }));
 
     expect(await screen.findByText(/valid email address/i)).toBeInTheDocument();
     expect(apiFetch).not.toHaveBeenCalled();
   });
 
-  it("submits the right payload and calls onDone on success", async () => {
-    vi.mocked(apiFetch).mockResolvedValueOnce({
-      id: "1",
-      email: "new@example.com",
-      role: "admin",
-      status: "active",
-      assignedClientIds: [],
-    });
+  it("submits the right payload and calls onDone with the generated credentials", async () => {
+    const result = {
+      user: {
+        id: "1",
+        email: "new@example.com",
+        role: "admin",
+        status: "active",
+        mustResetPassword: true,
+        assignedClientIds: [],
+      },
+      temporaryPassword: "generated-temp-password",
+    };
+    vi.mocked(apiFetch).mockResolvedValueOnce(result);
     const onDone = vi.fn();
     renderWithProviders(<CreateUserForm onDone={onDone} />);
 
     fireEvent.change(screen.getByPlaceholderText("name@example.com"), { target: { value: "new@example.com" } });
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "admin" } });
-    fireEvent.click(screen.getByRole("button", { name: /send invite/i }));
+    fireEvent.click(screen.getByRole("button", { name: /create user/i }));
 
-    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith(result));
     expect(apiFetch).toHaveBeenCalledWith(
       "/api/admin/users",
       expect.objectContaining({ method: "POST", body: JSON.stringify({ email: "new@example.com", role: "admin" }) })

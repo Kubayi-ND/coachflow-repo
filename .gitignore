@@ -34,3 +34,20 @@ npm-debug.log*
 
 # Apps Script
 infra/apps-script/**/.clasp.json
+
+# Local one-time backfill uploads (real client data — never commit)
+backend/data/local_backfill/**/*
+!backend/data/local_backfill/**/
+!backend/data/local_backfill/**/.gitkeep
+!backend/data/local_backfill/README.md
+
+# One-off migration source data (client names/emails — never commit)
+backend/Candidates Pack/
+.gstack/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

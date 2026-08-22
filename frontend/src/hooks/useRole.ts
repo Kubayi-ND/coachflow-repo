@@ -8,6 +8,7 @@ interface CurrentUser {
   id: string;
   email: string;
   role: UserRole;
+  mustResetPassword: boolean;
   assignedClientIds: string[];
 }
 
@@ -27,6 +28,7 @@ export function useRole() {
   return {
     user: query.data,
     isAdmin: query.data?.role === "admin",
+    mustResetPassword: query.data?.mustResetPassword ?? false,
     isLoading: query.isLoading,
   };
 }

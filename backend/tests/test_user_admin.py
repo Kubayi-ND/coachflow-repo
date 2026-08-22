@@ -97,6 +97,40 @@ async def test_create_user_record_inserts_active_status():
 
     assert user.status == UserStatus.ACTIVE
     assert user.email == "new@example.com"
+    assert user.must_reset_password is True  # default: admin-provisioned accounts force a reset
+
+
+@pytest.mark.asyncio
+async def test_complete_password_reset_clears_flag():
+    from app.db import repository
+
+    user_id = uuid4()
+    users = [
+        {
+            "id": str(user_id),
+            "email": "coach@example.com",
+            "role": "general",
+            "status": "active",
+            "must_reset_password": True,
+            "assigned_client_ids": [],
+            "created_at": "2024-01-01T00:00:00Z",
+        }
+    ]
+    with patch.object(repository, "get_supabase", return_value=_FakeSupabase(users)):
+        result = await repository.complete_password_reset(user_id)
+
+    assert result is not None
+    assert result.must_reset_password is False
+
+
+@pytest.mark.asyncio
+async def test_complete_password_reset_returns_none_for_missing_user():
+    from app.db import repository
+
+    with patch.object(repository, "get_supabase", return_value=_FakeSupabase([])):
+        result = await repository.complete_password_reset(uuid4())
+
+    assert result is None
 
 
 @pytest.mark.asyncio
@@ -150,18 +184,50 @@ def test_create_user_route_happy_path(admin_client):
 
     with (
         patch("app.api.routes.admin.get_user_by_email", new=AsyncMock(return_value=None)),
-        patch("app.api.routes.admin.invite_new_user", new=AsyncMock(return_value=new_id)),
+        patch(
+            "app.api.routes.admin.create_user_with_temp_password",
+            new=AsyncMock(return_value=(new_id, "a-generated-temp-password")),
+        ),
         patch(
             "app.api.routes.admin.create_user_record",
             new=AsyncMock(
-                return_value=User(id=new_id, email="new@example.com", role=UserRole.GENERAL, status=UserStatus.ACTIVE)
+                return_value=User(
+                    id=new_id,
+                    email="new@example.com",
+                    role=UserRole.GENERAL,
+                    status=UserStatus.ACTIVE,
+                    must_reset_password=True,
+                )
             ),
         ),
     ):
         response = client.post("/api/admin/users", json={"email": "new@example.com", "role": "general"})
 
     assert response.status_code == 201
-    assert response.json()["email"] == "new@example.com"
+    body = response.json()
+    assert body["user"]["email"] == "new@example.com"
+    assert body["user"]["mustResetPassword"] is True
+    assert body["temporaryPassword"] == "a-generated-temp-password"
+
+
+def test_create_user_route_rolls_back_auth_account_on_users_insert_failure(admin_client):
+    client, _admin = admin_client
+    new_id = uuid4()
+
+    with (
+        patch("app.api.routes.admin.get_user_by_email", new=AsyncMock(return_value=None)),
+        patch(
+            "app.api.routes.admin.create_user_with_temp_password",
+            new=AsyncMock(return_value=(new_id, "a-generated-temp-password")),
+        ),
+        patch("app.api.routes.admin.create_user_record", new=AsyncMock(side_effect=RuntimeError("insert failed"))),
+        patch("app.api.routes.admin.get_supabase") as mock_get_supabase,
+        pytest.raises(RuntimeError),
+    ):
+        mock_delete_user = mock_get_supabase.return_value.auth.admin.delete_user
+        client.post("/api/admin/users", json={"email": "new@example.com", "role": "general"})
+
+    mock_delete_user.assert_called_once_with(str(new_id))
 
 
 def test_create_user_route_conflict_on_existing_email(admin_client):
@@ -217,3 +283,27 @@ def test_forgot_password_always_returns_204_even_on_send_failure():
         response = client.post("/api/auth/forgot-password", json={"email": "anyone@example.com"})
 
     assert response.status_code == 204
+
+
+# --- /api/auth/complete-password-reset --------------------------------------
+
+
+def test_complete_password_reset_route_clears_flag():
+    from app.main import app
+
+    coach = User(
+        id=uuid4(), email="coach@example.com", role=UserRole.GENERAL, status=UserStatus.ACTIVE, must_reset_password=True
+    )
+    reset_coach = coach.model_copy(update={"must_reset_password": False})
+    app.dependency_overrides[get_current_user] = lambda: coach
+    try:
+        with patch(
+            "app.api.routes.auth.complete_password_reset", new=AsyncMock(return_value=reset_coach)
+        ):
+            client = TestClient(app)
+            response = client.post("/api/auth/complete-password-reset")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["mustResetPassword"] is False

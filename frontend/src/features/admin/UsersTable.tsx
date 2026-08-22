@@ -66,7 +66,7 @@ export function UsersTable({ users }: { users: AppUser[] }) {
           return (
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate">Delete {user.email}?</span>
-              <Button variant="danger" onClick={handleConfirmDelete} disabled={deleteUser.isPending}>
+              <Button variant="danger" onClick={handleConfirmDelete} isLoading={deleteUser.isPending}>
                 Confirm
               </Button>
               <Button variant="secondary" onClick={() => setConfirmingDeleteId(null)}>
@@ -81,7 +81,7 @@ export function UsersTable({ users }: { users: AppUser[] }) {
             <Button
               variant="secondary"
               onClick={handleSuspendToggle}
-              disabled={suspendUser.isPending || reactivateUser.isPending}
+              isLoading={suspendUser.isPending || reactivateUser.isPending}
             >
               {user.status === "active" ? "Suspend" : "Reactivate"}
             </Button>

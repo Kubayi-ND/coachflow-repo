@@ -1,8 +1,10 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Pill } from "@/components/ui/Pill";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
 import { useApproveDraft, useDrafts, useRejectDraft } from "@/hooks/useDrafts";
 import type { AiDraft, DraftType, TenantId } from "@/types";
@@ -69,20 +71,16 @@ function DraftRow({ draft }: { draft: AiDraft }) {
         <Pill tone="teal">{DRAFT_TYPE_LABEL[draft.draftType]}</Pill>
         <TenantPill tenantId={draft.tenantId} />
       </div>
-      <textarea
-        className="w-full min-h-32 rounded-md border border-slate/30 bg-transparent p-3 text-sm"
-        value={bodyValue}
-        onChange={(e) => setEditedBody(e.target.value)}
-      />
+      <Textarea className="min-h-32" value={bodyValue} onChange={(e) => setEditedBody(e.target.value)} />
       {rejecting ? (
         <div className="flex gap-2">
-          <input
-            className="flex-1 rounded-md border border-slate/30 bg-transparent px-3 py-2 text-sm"
+          <Input
+            className="flex-1"
             placeholder="Reason for rejection"
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
           />
-          <Button variant="danger" onClick={handleReject} disabled={rejectDraft.isPending}>
+          <Button variant="danger" onClick={handleReject} isLoading={rejectDraft.isPending} disabled={!rejectReason.trim()}>
             Confirm reject
           </Button>
           <Button variant="secondary" onClick={() => setRejecting(false)}>
@@ -91,7 +89,7 @@ function DraftRow({ draft }: { draft: AiDraft }) {
         </div>
       ) : (
         <div className="flex gap-2">
-          <Button onClick={handleApprove} disabled={approveDraft.isPending}>
+          <Button onClick={handleApprove} isLoading={approveDraft.isPending}>
             {editedBody !== null ? "Edit then approve" : "Approve & send"}
           </Button>
           <Button variant="danger" onClick={() => setRejecting(true)}>

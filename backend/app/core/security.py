@@ -58,6 +58,13 @@ async def require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+async def require_coach_or_admin(user: User = Depends(get_current_user)) -> User:
+    """Allow coaching staff to use the shared context and prompt library."""
+    if user.role not in (UserRole.ADMIN, UserRole.GENERAL):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Coach access required")
+    return user
+
+
 def assert_client_access(user: User, client_id: UUID) -> None:
     """Every service function touching a client_id must call this — enforced
     in db/repository.py, not just in route handlers, per backend/CLAUDE.md,

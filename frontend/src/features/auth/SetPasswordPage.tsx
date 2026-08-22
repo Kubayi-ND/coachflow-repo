@@ -1,16 +1,22 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { apiFetch } from "@/lib/apiClient";
 import { supabase } from "@/lib/supabaseClient";
 
-/** Serves both the account-setup (invite) and forgot-password (recovery)
- * flows — Supabase Auth resolves either link to the same kind of recovery
- * session client-side (supabaseClient.ts uses createClient() with default
- * options, so detectSessionInUrl is on). Once that session exists, setting
- * the password is just supabase.auth.updateUser — no backend route needed. */
+/** Serves three flows: the forgot-password recovery link, and both a
+ * temp-password admin-created account's forced first-login reset and a
+ * voluntary later password change — all three land here with an existing
+ * Supabase session (a recovery-link session, or a normal signed-in one), so
+ * setting the password is just supabase.auth.updateUser. The forced-reset
+ * case additionally needs the backend told, since must_reset_password lives
+ * in our `users` table, not in anything Supabase Auth exposes. */
 export function SetPasswordPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -31,12 +37,21 @@ export function SetPasswordPage() {
 
     setSubmitting(true);
     const { error: updateError } = await supabase.auth.updateUser({ password });
-    setSubmitting(false);
-
     if (updateError) {
+      setSubmitting(false);
       setError(updateError.message);
       return;
     }
+
+    try {
+      await apiFetch("/api/auth/complete-password-reset", { method: "POST" });
+    } catch {
+      // Password is already changed in Supabase Auth either way; a failure
+      // here just means a stale mustResetPassword flag, not a blocked login.
+    }
+    await queryClient.invalidateQueries({ queryKey: ["current-user"] });
+
+    setSubmitting(false);
     navigate("/", { replace: true });
   }
 
@@ -48,33 +63,33 @@ export function SetPasswordPage() {
           <label className="text-sm text-slate" htmlFor="password">
             New password
           </label>
-          <input
+          <Input
             id="password"
             type="password"
             required
             minLength={8}
+            error={!!error}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-md border border-slate/30 px-3 py-2 bg-transparent"
           />
         </div>
         <div className="space-y-1">
           <label className="text-sm text-slate" htmlFor="confirmPassword">
             Confirm password
           </label>
-          <input
+          <Input
             id="confirmPassword"
             type="password"
             required
             minLength={8}
+            error={!!error}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full rounded-md border border-slate/30 px-3 py-2 bg-transparent"
           />
         </div>
         {error && <p className="text-sm text-amber">{error}</p>}
-        <Button type="submit" disabled={submitting} className="w-full">
-          {submitting ? "Saving..." : "Set password"}
+        <Button type="submit" isLoading={submitting} className="w-full">
+          Set password
         </Button>
       </form>
     </div>

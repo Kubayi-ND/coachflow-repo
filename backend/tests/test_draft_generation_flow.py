@@ -25,6 +25,12 @@ class _FakeTable:
     def or_(self, *_args, **_kwargs):
         return self
 
+    def is_(self, *_args, **_kwargs):
+        return self
+
+    def in_(self, *_args, **_kwargs):
+        return self
+
     def order(self, *_args, **_kwargs):
         return self
 
@@ -57,6 +63,9 @@ class _FakeSupabase:
         table.insert = insert
         return table
 
+    def rpc(self, _name: str, _params: dict):
+        return _FakeTable([])
+
 
 @pytest.mark.asyncio
 async def test_generate_prep_email_draft_writes_pending_draft():
@@ -85,6 +94,7 @@ async def test_generate_prep_email_draft_writes_pending_draft():
         patch("app.services.context_builder.get_supabase", return_value=fake_supabase),
         patch("app.services.draft_generator.get_supabase", return_value=fake_supabase),
         patch("app.db.repository.get_supabase", return_value=fake_supabase),
+        patch("app.services.context_builder.embed_query_text", new=AsyncMock(return_value=[0.0] * 768)),
         patch(
             "app.services.draft_generator.generate",
             new=AsyncMock(return_value=MagicMock(text="Here is your prep email.", tokens=42, latency_ms=100)),

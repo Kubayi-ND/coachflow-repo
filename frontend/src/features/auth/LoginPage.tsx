@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, Navigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { useSession } from "@/hooks/useSession";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -31,34 +32,27 @@ export function LoginPage() {
           <label className="text-sm text-slate" htmlFor="email">
             Email
           </label>
-          <input
-            id="email"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md border border-slate/30 px-3 py-2 bg-transparent"
-          />
+          <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div className="space-y-1">
           <label className="text-sm text-slate" htmlFor="password">
             Password
           </label>
-          <input
+          <Input
             id="password"
             type="password"
             required
+            error={!!error}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-md border border-slate/30 px-3 py-2 bg-transparent"
           />
         </div>
         <Link to="/forgot-password" className="block text-xs text-teal hover:underline">
           Forgot password?
         </Link>
         {error && <p className="text-sm text-amber">{error}</p>}
-        <Button type="submit" disabled={submitting} className="w-full">
-          {submitting ? "Signing in..." : "Sign in"}
+        <Button type="submit" isLoading={submitting} className="w-full">
+          Sign in
         </Button>
       </form>
     </div>

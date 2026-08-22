@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { apiFetch } from "@/lib/apiClient";
 
 /** POST /api/auth/forgot-password always returns 204 whether or not the
@@ -40,17 +41,10 @@ export function ForgotPasswordPage() {
               <label className="text-sm text-slate" htmlFor="email">
                 Email
               </label>
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-md border border-slate/30 px-3 py-2 bg-transparent"
-              />
+              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
-            <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? "Sending..." : "Send reset link"}
+            <Button type="submit" isLoading={submitting} className="w-full">
+              Send reset link
             </Button>
           </form>
         )}

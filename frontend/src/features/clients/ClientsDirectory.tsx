@@ -10,7 +10,7 @@ export function ClientsDirectory() {
 
   return (
     <div>
-      <h1 className="text-2xl mb-4">Clients</h1>
+      <h1 className="text-2xl mb-4">Clients &amp; companies</h1>
       {isLoading && <ClientsDirectorySkeleton />}
       <ul className="space-y-2">
         {clients?.map((client) => (

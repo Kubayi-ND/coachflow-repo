@@ -9,6 +9,7 @@ from app.api.routes import (
     auth,
     clients,
     drafts,
+    imports,
     metrics,
     scorecards,
     sessions,
@@ -42,6 +43,7 @@ app.include_router(drafts.router, prefix="/api/drafts", tags=["drafts"])
 app.include_router(scorecards.router, prefix="/api/scorecards", tags=["scorecards"])
 app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(imports.router, prefix="/api/admin/imports", tags=["admin", "imports"])
 app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 
 

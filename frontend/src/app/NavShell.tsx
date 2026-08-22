@@ -6,22 +6,24 @@ import { useToast } from "@/components/ui/Toast";
 import { useLogout } from "@/hooks/useLogout";
 import { useRole } from "@/hooks/useRole";
 import { useSession } from "@/hooks/useSession";
+import { useTheme } from "@/hooks/useTheme";
 
 // Views, in the order a coach actually uses them (frontend/CLAUDE.md):
-// Calendar -> Approvals -> Clients -> Scorecards -> Metrics -> Admin.
+// Upcoming sessions -> Approvals -> Clients & companies.
 const NAV_ITEMS = [
-  { to: "/", label: "Calendar" },
+  { to: "/", label: "Upcoming sessions" },
   { to: "/approvals", label: "Approvals" },
-  { to: "/clients", label: "Clients" },
-  { to: "/metrics", label: "Metrics" },
+  { to: "/clients", label: "Clients & companies" },
 ] as const;
 
 export function NavShell({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useSession();
-  const { isAdmin } = useRole();
+  const { isAdmin, user } = useRole();
+  const canUseCoachLibrary = isAdmin || user?.role === "general";
   const location = useLocation();
   const logout = useLogout();
   const toast = useToast();
+  const { theme, toggleTheme } = useTheme();
 
   if (!isAuthenticated || location.pathname === "/login") {
     return <>{children}</>;
@@ -50,7 +52,7 @@ export function NavShell({ children }: { children: ReactNode }) {
               {item.label}
             </NavLink>
           ))}
-          {isAdmin && (
+          {canUseCoachLibrary && (
             <NavLink
               to="/context-library"
               className={({ isActive }) => (isActive ? "text-teal font-medium" : "text-slate")}
@@ -66,10 +68,26 @@ export function NavShell({ children }: { children: ReactNode }) {
               Users
             </NavLink>
           )}
+          {isAdmin && (
+            <NavLink
+              to="/admin/imports"
+              className={({ isActive }) => (isActive ? "text-teal font-medium" : "text-slate")}
+            >
+              Import
+            </NavLink>
+          )}
           <NavLink to="/account" className={({ isActive }) => (isActive ? "text-teal font-medium" : "text-slate")}>
             Account
           </NavLink>
-          <Button variant="secondary" className="px-3 py-1" onClick={handleLogout} disabled={logout.isPending}>
+          <Button
+            variant="secondary"
+            className="px-3 py-1"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === "dark" ? "Light mode" : "Dark mode"}
+          </Button>
+          <Button variant="secondary" className="px-3 py-1" onClick={handleLogout} isLoading={logout.isPending}>
             Log out
           </Button>
         </nav>

@@ -26,7 +26,7 @@ class GeminiResult:
         return json.loads(self.text)
 
 
-async def generate(prompt: str, *, structured: bool = False, model: str = "gemini-1.5-pro") -> GeminiResult:
+async def generate(prompt: str, *, structured: bool = False, model: str = "gemini-3.5-flash") -> GeminiResult:
     """Single entry point for every Gemini call in the system — replaces the
     manual Gemini Notebook paste-and-chat loop. Callers that need
     deterministic frontend rendering (scorecards) pass structured=True to get

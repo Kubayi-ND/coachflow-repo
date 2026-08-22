@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiFetch } from "@/lib/apiClient";
-import type { AppUser, UserRole } from "@/types";
+import type { AppUser, CreateUserResult, UserRole } from "@/types";
 
 const USERS_KEY = ["admin", "users"] as const;
 
@@ -19,7 +19,7 @@ export function useCreateUser() {
 
   return useMutation({
     mutationFn: ({ email, role }: { email: string; role: UserRole }) =>
-      apiFetch<AppUser>("/api/admin/users", { method: "POST", body: JSON.stringify({ email, role }) }),
+      apiFetch<CreateUserResult>("/api/admin/users", { method: "POST", body: JSON.stringify({ email, role }) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: USERS_KEY }),
   });
 }

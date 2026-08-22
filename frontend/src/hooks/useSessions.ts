@@ -1,12 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiFetch } from "@/lib/apiClient";
-import type { Session, SessionTypeId, UnmatchedEvent } from "@/types";
+import type { Session, SessionPrep, SessionTypeId, UnmatchedEvent } from "@/types";
 
 export function useSessions() {
   return useQuery({
     queryKey: ["sessions"],
     queryFn: () => apiFetch<Session[]>("/api/sessions"),
+  });
+}
+
+export function useSessionPrep(sessionId: string | null) {
+  return useQuery({
+    queryKey: ["session-prep", sessionId],
+    queryFn: () => apiFetch<SessionPrep>(`/api/sessions/${sessionId}/prep`),
+    enabled: !!sessionId,
   });
 }
 
