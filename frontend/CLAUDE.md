@@ -67,7 +67,7 @@ frontend/
 
 **Metrics** (admin + coach) — admin hours saved, time from session-end to draft-ready, Gemini token cost vs. billable-hour value protected, transcript parse success rate by source (`plaud` / `gemini_meet`), draft approval rate without edits, unmatched-events count. Treat this as an operations dashboard, not a report — summary tiles first, detail tables below, and encode state (a falling approval-without-edits rate) as a visual flag, not just a number.
 
-**Admin** — tenant credential status (connected/expired, never the raw token), reminder-rule editor (lead time + naming pattern per session type), prompt template editor (the templates that replaced Obsidian), and user management (assign clients to coaches, set roles).
+**Admin** — tenant credential status (connected/expired, never the raw token), reminder-rule editor (lead time + naming pattern per session type), prompt template editor (the templates that replaced Obsidian — editing here changes what draft/scorecard generation actually sends to Gemini, not just a display copy), Context Library editor (org-wide or client-specific entries, each requiring a heading so the model can judge relevance), and user management (assign clients to coaches, set roles). Both the prompt template and Context Library editors are append-only: saving posts a new version rather than overwriting, with history browsable per entry.
 
 ## API integration pattern
 

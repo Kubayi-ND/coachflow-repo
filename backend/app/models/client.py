@@ -1,5 +1,7 @@
 from uuid import UUID
 
+from pydantic import Field
+
 from app.models.base import CamelModel
 from app.session_types_generated import SessionType
 
@@ -11,7 +13,7 @@ class Client(CamelModel):
     coach_user_id: UUID
     tenant_id: str
     drive_folder_id: str | None = None
-    session_types: list[SessionType] = []
+    session_types: list[SessionType] = Field(default_factory=list)
 
 
 class ClientCreate(CamelModel):
@@ -20,4 +22,4 @@ class ClientCreate(CamelModel):
     coach_user_id: UUID
     tenant_id: str
     drive_folder_id: str | None = None
-    session_types: list[SessionType] = []
+    session_types: list[SessionType] = Field(default_factory=list)

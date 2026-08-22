@@ -52,7 +52,7 @@ export function NavShell({ children }: { children: ReactNode }) {
           ))}
           {isAdmin && (
             <NavLink to="/admin" className={({ isActive }) => (isActive ? "text-teal font-medium" : "text-slate")}>
-              Admin
+              Context Library
             </NavLink>
           )}
           <NavLink to="/account" className={({ isActive }) => (isActive ? "text-teal font-medium" : "text-slate")}>

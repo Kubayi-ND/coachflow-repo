@@ -8,6 +8,9 @@ import { apiFetch } from "@/lib/apiClient";
 import { SESSION_TYPES } from "@/types";
 import type { SessionTypeId } from "@/types";
 
+import { ContextLibrarySection } from "./ContextLibrarySection";
+import { PromptTemplateSection } from "./PromptTemplateSection";
+
 interface ReminderRule {
   sessionType: SessionTypeId;
   leadTimeWorkingDays: number;
@@ -21,14 +24,16 @@ interface TenantStatus {
 }
 
 /** Tenant credential status, reminder-rule editor, prompt template editor,
- * and user management — the templates that replaced Obsidian
- * (frontend/CLAUDE.md). */
+ * and Context Library editor — the templates that replaced Obsidian
+ * (frontend/CLAUDE.md). User management is not yet built. */
 export function AdminPanel() {
   return (
     <div className="space-y-10">
       <h1 className="text-2xl">Admin</h1>
       <TenantStatusSection />
       <ReminderRulesSection />
+      <PromptTemplateSection />
+      <ContextLibrarySection />
     </div>
   );
 }

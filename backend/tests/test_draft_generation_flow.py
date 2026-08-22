@@ -63,14 +63,28 @@ async def test_generate_prep_email_draft_writes_pending_draft():
     fake_supabase = _FakeSupabase(
         tables={
             "clients": [{"id": "client-1", "name": "Jane Doe", "email": "jane@example.com"}],
-            "context_library": [{"id": "ctx-1", "title": "ICF Competency 3", "body": "...", "version": 1}],
+            "context_library_current": [
+                {"id": "ctx-1", "entry_group_id": "ctx-group-1", "title": "ICF Competency 3", "body": "...", "version": 1}
+            ],
             "sessions": [],
+            "prompt_templates_current": [
+                {
+                    "id": "tpl-1",
+                    "entry_group_id": "tpl-group-1",
+                    "session_type": "one_on_one",
+                    "phase": "pre",
+                    "title": "1-on-1 Executive Coaching — Pre-Session Prep",
+                    "body": "prep prompt for {client_profile} {context_library} {prior_sessions}",
+                    "version": 1,
+                }
+            ],
         }
     )
 
     with (
         patch("app.services.context_builder.get_supabase", return_value=fake_supabase),
         patch("app.services.draft_generator.get_supabase", return_value=fake_supabase),
+        patch("app.db.repository.get_supabase", return_value=fake_supabase),
         patch(
             "app.services.draft_generator.generate",
             new=AsyncMock(return_value=MagicMock(text="Here is your prep email.", tokens=42, latency_ms=100)),

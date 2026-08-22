@@ -58,6 +58,27 @@ export interface Scorecard {
   citations: Record<string, unknown>[];
 }
 
+export interface ContextLibraryEntry {
+  id: string;
+  entryGroupId: string;
+  clientId: string | null; // null = org-wide (ICF/GROW docs)
+  title: string; // required heading describing what this entry covers
+  body: string;
+  version: number;
+  createdAt: string;
+}
+
+export interface PromptTemplate {
+  id: string;
+  entryGroupId: string;
+  sessionType: import("./sessionTypes.generated").SessionTypeId;
+  phase: "pre" | "post";
+  title: string;
+  body: string;
+  version: number;
+  createdAt: string;
+}
+
 export interface MetricsSummary {
   hoursSaved: number;
   avgSessionEndToDraftReadyMinutes: number;

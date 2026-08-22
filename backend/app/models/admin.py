@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from app.models.base import CamelModel
 from app.session_types_generated import SessionType
 
@@ -9,10 +11,26 @@ class ReminderRule(CamelModel):
 
 
 class PromptTemplate(CamelModel):
+    id: UUID
+    entry_group_id: UUID
     session_type: SessionType
     phase: str  # "pre" | "post"
+    title: str  # clear heading, e.g. "1-on-1 — Pre-Session Prep"
     body: str
-    version: int = 1
+    version: int
+    created_at: str
+
+
+class PromptTemplateCreate(CamelModel):
+    session_type: SessionType
+    phase: str
+    title: str
+    body: str
+
+
+class PromptTemplateVersion(CamelModel):
+    title: str
+    body: str
 
 
 class TenantStatus(CamelModel):
