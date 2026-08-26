@@ -6,6 +6,7 @@ import { Pill } from "@/components/ui/Pill";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
+import { CheckCircleIcon } from "@/components/ui/icons";
 import { useApproveDraft, useDrafts, useRejectDraft } from "@/hooks/useDrafts";
 import type { AiDraft, DraftType, TenantId } from "@/types";
 
@@ -21,12 +22,24 @@ const DRAFT_TYPE_LABEL: Record<DraftType, string> = {
  * explicit action (frontend/CLAUDE.md). */
 export function ApprovalsInbox() {
   const { data: drafts, isLoading } = useDrafts();
+  const pendingCount = drafts?.length ?? 0;
 
   return (
     <div>
-      <h1 className="text-2xl mb-4">Approvals</h1>
+      <div className="mb-6 flex items-center gap-2 text-sm text-slate">
+        <span className="rounded-full bg-amber/15 px-2 py-0.5 text-xs tabular-nums text-amber">{pendingCount} pending</span>
+      </div>
+
       {isLoading && <ApprovalsSkeleton />}
-      {drafts && drafts.length === 0 && <p className="text-slate">Nothing pending — inbox is clear.</p>}
+
+      {drafts && drafts.length === 0 && (
+        <div className="flex flex-col items-center rounded-xl border border-border bg-surface py-20 text-center shadow-card">
+          <CheckCircleIcon className="h-12 w-12 text-teal/40" />
+          <p className="mt-4 text-base font-medium text-ink">Inbox is clear</p>
+          <p className="mt-1 text-sm text-slate">All drafts have been reviewed.</p>
+        </div>
+      )}
+
       <div className="space-y-4">
         {drafts?.map((draft) => (
           <DraftRow key={draft.id} draft={draft} />
@@ -66,16 +79,17 @@ function DraftRow({ draft }: { draft: AiDraft }) {
   }
 
   return (
-    <div className="rounded-lg border border-slate/20 p-4 space-y-3">
-      <div className="flex items-center gap-2">
+    <div className="rounded-xl border border-border bg-surface p-5 shadow-card">
+      <div className="mb-4 flex items-center gap-2">
         <Pill tone="teal">{DRAFT_TYPE_LABEL[draft.draftType]}</Pill>
         <TenantPill tenantId={draft.tenantId} />
       </div>
-      <Textarea className="min-h-32" value={bodyValue} onChange={(e) => setEditedBody(e.target.value)} />
+      <Textarea className="min-h-36 bg-surface-2" value={bodyValue} onChange={(e) => setEditedBody(e.target.value)} />
+      <p className="mt-1.5 text-right text-[10px] text-slate">{bodyValue.length} characters</p>
       {rejecting ? (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Input
-            className="flex-1"
+            className="min-w-[200px] flex-1"
             placeholder="Reason for rejection"
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
@@ -88,8 +102,8 @@ function DraftRow({ draft }: { draft: AiDraft }) {
           </Button>
         </div>
       ) : (
-        <div className="flex gap-2">
-          <Button onClick={handleApprove} isLoading={approveDraft.isPending}>
+        <div className="flex items-center gap-3">
+          <Button className="flex-1 sm:flex-none" onClick={handleApprove} isLoading={approveDraft.isPending}>
             {editedBody !== null ? "Edit then approve" : "Approve & send"}
           </Button>
           <Button variant="danger" onClick={() => setRejecting(true)}>
@@ -105,7 +119,7 @@ function ApprovalsSkeleton() {
   return (
     <div className="space-y-4">
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="rounded-lg border border-slate/20 p-4 space-y-3">
+        <div key={i} className="rounded-xl border border-border bg-surface p-5 shadow-card space-y-3">
           <div className="flex items-center gap-2">
             <Skeleton className="h-5 w-24 rounded-full" />
             <Skeleton className="h-5 w-20 rounded-full" />

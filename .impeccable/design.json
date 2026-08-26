@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-24T11:54:09Z",
+  "title": "Design System: CoachFlow",
+  "extensions": {
+    "colorMeta": {
+      "teal": { "role": "primary", "displayName": "Deep Teal", "canonical": "#2F6F62" },
+      "amber": { "role": "secondary", "displayName": "Ember Amber", "canonical": "#B97A22" },
+      "paper": { "role": "neutral", "displayName": "Warm Paper", "canonical": "#F6F5F1" },
+      "ink": { "role": "neutral", "displayName": "Deep Ink", "canonical": "#1F2623" },
+      "slate": { "role": "neutral", "displayName": "Cool Slate", "canonical": "#5B6763" },
+      "surface": { "role": "neutral", "displayName": "Card Surface", "canonical": "#FFFFFF" },
+      "surface-2": { "role": "neutral", "displayName": "Inset Well", "canonical": "#F2F1ED" },
+      "border": { "role": "neutral", "displayName": "Hairline Border", "canonical": "#DFDDD6" },
+      "sidebar-bg": { "role": "neutral", "displayName": "Sidebar Ground", "canonical": "#1A2824" },
+      "sidebar-accent": { "role": "primary", "displayName": "Sidebar Teal Accent", "canonical": "#6FB8A5" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Fraunces Display", "purpose": "Page titles, stat-tile numerals, card titles." },
+      "body": { "displayName": "Public Sans Body", "purpose": "All functional UI text — labels, buttons, tables, forms." }
+    },
+    "shadows": [
+      { "name": "card", "value": "0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06)", "purpose": "Resting elevation for every card, stat tile, and table shell." },
+      { "name": "cardmd", "value": "0 4px 12px 0 rgb(0 0 0 / 0.10), 0 2px 4px -2px rgb(0 0 0 / 0.08)", "purpose": "Hover state for interactive rows." },
+      { "name": "panel", "value": "0 8px 24px 0 rgb(0 0 0 / 0.14), 0 4px 8px -4px rgb(0 0 0 / 0.10)", "purpose": "Overlays — drawers, mobile nav, toasts." }
+    ],
+    "motion": [
+      { "name": "state-transition", "value": "100ms-250ms ease", "purpose": "Hover, focus, and reveal transitions only — never idle/decorative." }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single commit action per view — Approve & send, Create entry, Save.",
+      "html": "<button class=\"ds-btn-primary\">Approve &amp; send</button>",
+      "css": ".ds-btn-primary { background: #2F6F62; color: #fff; border: none; border-radius: 8px; height: 36px; padding: 0 16px; font-size: 14px; font-weight: 500; font-family: 'Public Sans', system-ui, sans-serif; transition: background-color 100ms; } .ds-btn-primary:hover { background: #2a6357; } .ds-btn-primary:focus-visible { outline: 2px solid #2F6F62; outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Pill",
+      "kind": "chip",
+      "refersTo": "pill-teal",
+      "description": "Status and tenant badges — always visible so the coach knows a send's origin at a glance.",
+      "html": "<span class=\"ds-pill\">Ready for review</span>",
+      "css": ".ds-pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 500; font-family: 'Public Sans', system-ui, sans-serif; background: #E4EEEB; color: #2F6F62; }"
+    },
+    {
+      "name": "Stat Tile",
+      "kind": "card",
+      "refersTo": "card-base",
+      "description": "Top-of-view KPI block — a tinted icon ring, a large tabular number, a small label.",
+      "html": "<dl class=\"ds-stat-tile\"><div class=\"ds-stat-icon\">●</div><dd class=\"ds-stat-value\">12</dd><dt class=\"ds-stat-label\">Active clients</dt></dl>",
+      "css": ".ds-stat-tile { background: #fff; border: 1px solid #DFDDD6; border-radius: 12px; padding: 16px 20px; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06); } .ds-stat-icon { width: 40px; height: 40px; border-radius: 9999px; background: #F2F1ED; color: #5B6763; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; } .ds-stat-value { font-family: 'Fraunces', serif; font-size: 30px; color: #1F2623; font-variant-numeric: tabular-nums; margin: 0; } .ds-stat-label { font-size: 12px; color: #5B6763; margin-top: 4px; }"
+    },
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": "card-base",
+      "description": "Icon + label sidebar row; active item gets a teal-tinted background.",
+      "html": "<a class=\"ds-nav-item ds-nav-item--active\">Approvals</a>",
+      "css": ".ds-nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; font-size: 14px; color: rgba(204,214,210,0.8); font-family: 'Public Sans', system-ui, sans-serif; } .ds-nav-item--active { background: rgba(111,184,165,0.15); color: #6FB8A5; font-weight: 500; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Coach's Console",
+    "overview": "CoachFlow is a daily-use operations tool for an executive coach, not a marketing surface — a single practitioner scanning what needs attention across two client tenants before their next session. The system reads as a modern SaaS admin dashboard: a fixed dark sidebar anchors navigation, a paper-toned content field holds elevated white (or dark-surface) cards, and a KPI strip leads every main view so the coach sees counts before they scroll. The palette stays the practice's own — warm paper, deep teal, and an amber reserved strictly for needs attention — carried into a denser, card-first structure rather than the flat top-nav lists the app shipped with originally. Density and restraint govern every decision here: this is Operate mode, so familiarity beats expression.",
+    "keyCharacteristics": [
+      "Fixed dark sidebar, collapsing to an icon rail at tablet width, a slide-over drawer on mobile.",
+      "Elevated white/dark-surface cards on a warm paper field, never a bare list or table row.",
+      "Amber is exclusively the pending/attention signal.",
+      "Teal is exclusively the primary action/positive-state signal.",
+      "Fraunces is reserved for headings and large numerals; everything else is Public Sans."
+    ],
+    "rules": [
+      { "name": "The Amber Exclusivity Rule", "body": "Amber never appears for anything except something the coach must act on.", "section": "colors" },
+      { "name": "The Sidebar-Stays-Dark Rule", "body": "The sidebar ground never follows the light/dark toggle.", "section": "colors" },
+      { "name": "The Tabular Numerals Rule", "body": "Every column of numbers uses tabular-nums so digits align.", "section": "typography" },
+      { "name": "The Hover-Raises Rule", "body": "A card only escalates from card to cardmd shadow in direct response to hover/focus.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do reserve amber strictly for pending/attention states.",
+      "Do keep the sidebar ground dark in both light and dark theme.",
+      "Do show a countdown or status chip's meaning as visible text, not color alone.",
+      "Do use tabular-nums on every numeric column.",
+      "Do raise a card's shadow only in direct response to hover/focus."
+    ],
+    "donts": [
+      "Don't use a colored left/right border as a callout or emphasis device.",
+      "Don't introduce a second display face or a system font as the heading voice.",
+      "Don't add decorative motion.",
+      "Don't ship a stat tile, pill, or button that skips the shared component."
+    ]
+  }
+}

@@ -3,5 +3,5 @@
  * than a generic spinner (frontend/CLAUDE.md: this is an operations
  * dashboard, not a report). */
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded-md bg-slate/15 ${className}`} />;
+  return <div className={`animate-pulse rounded-lg bg-surface-2 ${className}`} />;
 }

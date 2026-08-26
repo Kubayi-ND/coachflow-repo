@@ -33,7 +33,6 @@ export function ContextLibraryPage() {
 
   return (
     <div className="space-y-10">
-      <h1 className="text-2xl">Context Library</h1>
       {isAdmin && <TenantStatusSection />}
       <ReminderRulesSection />
       <PromptTemplateSection />
@@ -50,22 +49,22 @@ function TenantStatusSection() {
 
   return (
     <section>
-      <h2 className="text-lg mb-2">Tenants</h2>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate">Tenants</h2>
       {isLoading ? (
         <RowsSkeleton count={2} />
       ) : (
-        <ul className="space-y-2">
+        <div className="space-y-2">
           {tenants?.map((tenant) => (
-            <li
+            <div
               key={tenant.id}
-              className="flex items-center justify-between rounded-md border border-slate/15 px-4 py-3"
+              className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 shadow-card"
             >
-              <span>{tenant.workspaceDomain}</span>
+              <span className="text-sm text-ink">{tenant.workspaceDomain}</span>
               {/* Connection status only — never the raw token, per root CLAUDE.md. */}
               <Pill tone={tenant.connected ? "teal" : "amber"}>{tenant.connected ? "Connected" : "Expired"}</Pill>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </section>
   );
@@ -95,7 +94,7 @@ function ReminderRulesSection() {
 
   return (
     <section>
-      <h2 className="text-lg mb-2">Reminder rules</h2>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate">Reminder rules</h2>
       {isLoading ? (
         <RowsSkeleton count={4} />
       ) : (
@@ -120,7 +119,7 @@ function RowsSkeleton({ count }: { count: number }) {
   return (
     <div className="space-y-2">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="flex items-center justify-between rounded-md border border-slate/15 px-4 py-3">
+        <div key={i} className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
           <div className="space-y-2">
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-3 w-48" />
@@ -144,9 +143,9 @@ function ReminderRuleRow({
   const [leadTime, setLeadTime] = useState(rule.leadTimeWorkingDays);
 
   return (
-    <div className="flex items-center justify-between rounded-md border border-slate/15 px-4 py-3">
+    <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 shadow-card">
       <div>
-        <p className="text-sm">{SESSION_TYPES[rule.sessionType].label}</p>
+        <p className="text-sm text-ink">{SESSION_TYPES[rule.sessionType].label}</p>
         <p className="text-xs text-slate">{rule.namingPattern}</p>
       </div>
       <div className="flex items-center gap-2">

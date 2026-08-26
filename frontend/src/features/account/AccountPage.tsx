@@ -24,16 +24,14 @@ export function AccountPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-lg">
-      <h1 className="text-2xl">Account</h1>
-
-      <div className="rounded-lg border border-slate/20 p-4 space-y-4">
+    <div className="max-w-lg space-y-6">
+      <div className="rounded-xl border border-border bg-surface p-5 shadow-card space-y-4">
         <div>
           <p className="text-xs text-slate">Email</p>
-          <p className="text-sm mt-1">{user.email}</p>
+          <p className="mt-1 text-sm text-ink">{user.email}</p>
         </div>
         <div>
-          <p className="text-xs text-slate mb-1">Role</p>
+          <p className="mb-1 text-xs text-slate">Role</p>
           <Pill tone={isAdmin ? "teal" : "neutral"}>{isAdmin ? "Admin" : "Coach"}</Pill>
         </div>
       </div>
@@ -53,8 +51,8 @@ function AssignedClients() {
   const { data: clients, isLoading } = useClients();
 
   return (
-    <div className="rounded-lg border border-slate/20 p-4">
-      <p className="text-xs text-slate mb-2">Assigned clients</p>
+    <div className="rounded-xl border border-border bg-surface p-5 shadow-card">
+      <p className="mb-2 text-xs text-slate">Assigned clients</p>
       {isLoading && (
         <div className="space-y-2">
           <Skeleton className="h-4 w-32" />
@@ -63,7 +61,7 @@ function AssignedClients() {
       )}
       {clients && clients.length === 0 && <p className="text-sm text-slate">No clients assigned yet.</p>}
       {clients && clients.length > 0 && (
-        <ul className="text-sm space-y-1">
+        <ul className="space-y-1 text-sm text-ink">
           {clients.map((client) => (
             <li key={client.id}>{client.name}</li>
           ))}
@@ -75,9 +73,8 @@ function AssignedClients() {
 
 function AccountPageSkeleton() {
   return (
-    <div className="space-y-6 max-w-lg">
-      <h1 className="text-2xl">Account</h1>
-      <div className="rounded-lg border border-slate/20 p-4 space-y-4">
+    <div className="max-w-lg space-y-6">
+      <div className="rounded-xl border border-border bg-surface p-5 shadow-card space-y-4">
         <div>
           <Skeleton className="h-3 w-12 mb-2" />
           <Skeleton className="h-4 w-40" />

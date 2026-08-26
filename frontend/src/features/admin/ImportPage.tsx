@@ -58,22 +58,21 @@ export function ImportPage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl">Import</h1>
+        <p className="max-w-2xl text-sm text-slate">
+          One-time backfill of pre-existing Drive folders into CoachFlow. Ongoing calendar sync and transcript
+          intake keep using the live paths — each source below only needs to run once per tenant.
+        </p>
         <Select value={tenantId} onChange={(e) => setTenantId(e.target.value as TenantId)}>
           <option value="tenant_a">Tenant A</option>
           <option value="tenant_b">Tenant B</option>
         </Select>
       </div>
-      <p className="text-sm text-slate">
-        One-time backfill of pre-existing Drive folders into CoachFlow. Ongoing calendar sync and transcript
-        intake keep using the live paths — each source below only needs to run once per tenant.
-      </p>
 
       <section className="space-y-3">
         {SOURCES.map((source) => (
-          <div key={source.id} className="flex items-center gap-3 rounded-md border border-slate/15 px-4 py-3">
+          <div key={source.id} className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 shadow-card">
             <div className="flex-1">
-              <p className="text-sm font-medium">{source.label}</p>
+              <p className="text-sm font-medium text-ink">{source.label}</p>
               <p className="text-xs text-slate">{source.hint}</p>
             </div>
             <Input
@@ -90,17 +89,17 @@ export function ImportPage() {
       </section>
 
       <section>
-        <h2 className="text-lg mb-2">Import jobs</h2>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate">Import jobs</h2>
         {isLoading && <p className="text-sm text-slate">Loading…</p>}
         <ul className="space-y-2">
           {(jobs ?? []).map((job) => (
-            <li key={job.id} className="rounded-md border border-slate/15 px-4 py-3">
+            <li key={job.id} className="rounded-xl border border-border bg-surface px-4 py-3 shadow-card">
               <button
                 className="flex w-full items-center justify-between text-left"
                 onClick={() => setExpandedJobId((id) => (id === job.id ? null : job.id))}
               >
                 <div>
-                  <p className="text-sm">{SOURCES.find((s) => s.id === job.source)?.label ?? job.source}</p>
+                  <p className="text-sm text-ink">{SOURCES.find((s) => s.id === job.source)?.label ?? job.source}</p>
                   <p className="text-xs text-slate tabular-nums">
                     {job.itemsSucceeded} succeeded · {job.itemsFailed} failed · {job.itemsTotal} total
                   </p>
@@ -140,7 +139,7 @@ function ImportJobItems({ jobId }: { jobId: string }) {
   }
 
   return (
-    <div className="mt-3 space-y-3 border-t border-slate/15 pt-3">
+    <div className="mt-3 space-y-3 border-t border-border pt-3">
       {unmatched.length > 0 && (
         <div>
           <p className="text-xs font-medium text-slate mb-1">Needs a client ({unmatched.length})</p>
@@ -148,7 +147,7 @@ function ImportJobItems({ jobId }: { jobId: string }) {
             {unmatched.map((item) => (
               <li
                 key={item.id}
-                className="flex items-center justify-between rounded-md border border-amber/40 bg-amber/5 px-3 py-2"
+                className="flex items-center justify-between rounded-lg border border-amber/30 bg-amber/5 px-3 py-2"
               >
                 <span className="text-sm">{item.fileName}</span>
                 <Select

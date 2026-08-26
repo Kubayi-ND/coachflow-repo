@@ -20,8 +20,7 @@ export function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl">Users</h1>
+      <div className="flex items-center justify-end">
         <Button
           variant="secondary"
           onClick={() => {
@@ -34,12 +33,14 @@ export function UsersPage() {
       </div>
 
       {creating && (
-        <CreateUserForm
-          onDone={(result) => {
-            setCreating(false);
-            setNewCredentials(result);
-          }}
-        />
+        <div className="rounded-xl border border-border bg-surface p-4 shadow-card">
+          <CreateUserForm
+            onDone={(result) => {
+              setCreating(false);
+              setNewCredentials(result);
+            }}
+          />
+        </div>
       )}
 
       {newCredentials && (
@@ -64,14 +65,14 @@ function NewCredentialsPanel({ result, onDismiss }: { result: CreateUserResult; 
   }
 
   return (
-    <div className="space-y-2 rounded-md border border-amber/40 bg-amber/10 px-4 py-3">
-      <p className="text-sm">
+    <div className="space-y-2 rounded-xl border border-amber/30 bg-amber/5 px-4 py-3">
+      <p className="text-sm text-ink">
         Account created for <span className="font-medium">{result.user.email}</span>. This
         one-time password is shown once — copy it now and share it with the coach directly (it
         cannot be retrieved again). They'll be required to set their own password on first login.
       </p>
       <div className="flex items-center gap-2">
-        <code className="rounded bg-paper px-2 py-1 text-sm">{result.temporaryPassword}</code>
+        <code className="rounded-md bg-surface px-2 py-1 text-sm text-ink">{result.temporaryPassword}</code>
         <Button variant="secondary" onClick={handleCopy}>
           Copy
         </Button>
@@ -87,7 +88,7 @@ function UsersTableSkeleton() {
   return (
     <div className="space-y-2">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="flex items-center justify-between rounded-md border border-slate/15 px-4 py-3">
+        <div key={i} className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
           <Skeleton className="h-4 w-48" />
           <Skeleton className="h-5 w-16 rounded-full" />
           <Skeleton className="h-8 w-40" />

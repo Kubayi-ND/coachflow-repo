@@ -12,8 +12,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     <select
       ref={ref}
       aria-invalid={error || undefined}
-      className={`rounded-md border bg-transparent px-2 py-1.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-teal/30 ${
-        error ? "border-amber focus:border-amber" : "border-slate/30 focus:border-teal"
+      className={`rounded-lg border bg-surface-2 px-2.5 py-1.5 text-sm text-ink transition-colors focus:outline-none focus:ring-2 focus:ring-teal/20 ${
+        error ? "border-amber focus:border-amber" : "border-border focus:border-teal"
       } ${className}`}
       {...props}
     />

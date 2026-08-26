@@ -49,7 +49,7 @@ export function CreateUserForm({ onDone }: { onDone: (result: CreateUserResult) 
   });
 
   return (
-    <form onSubmit={onSubmit} noValidate className="mt-3 flex flex-wrap items-start gap-3 border-t border-slate/10 pt-3">
+    <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-start gap-3">
       <div className="min-w-[220px] flex-1">
         <Input type="email" placeholder="name@example.com" error={!!errors.email} {...register("email")} />
         {errors.email && <p className="mt-1 text-xs text-amber">{errors.email.message}</p>}

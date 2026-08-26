@@ -9,6 +9,15 @@
   --color-teal-soft: 228 238 235;
   --color-amber: 185 122 34;
   --color-slate: 91 103 99;
+
+  /* Dashboard shell tokens — additive extension of the palette above, not a
+     replacement (frontend/CLAUDE.md tokens stay binding). */
+  --color-surface: 255 255 255;
+  --color-surface-2: 242 241 237;
+  --color-border: 223 221 214;
+  --color-sidebar-bg: 26 40 36;
+  --color-sidebar-fg: 204 214 210;
+  --color-sidebar-accent: 111 184 165;
 }
 
 .dark {
@@ -18,6 +27,13 @@
   --color-teal-soft: 28 51 44;
   --color-amber: 224 172 92;
   --color-slate: 154 166 160;
+
+  --color-surface: 27 41 37;
+  --color-surface-2: 20 32 28;
+  --color-border: 48 63 57;
+  --color-sidebar-bg: 15 25 21;
+  --color-sidebar-fg: 154 166 160;
+  --color-sidebar-accent: 111 184 165;
 }
 
 body {
@@ -47,4 +63,33 @@ h3 {
    figures so digits align — frontend/CLAUDE.md. */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* Scrollbars inside the sidebar and any scrollable card ride the same
+   surface tokens as the rest of the shell rather than the OS default. */
+* {
+  scrollbar-color: rgb(var(--color-slate) / 0.35) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--color-slate) / 0.35);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+.sidebar-scroll {
+  scrollbar-color: rgb(var(--color-sidebar-fg) / 0.25) transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--color-sidebar-fg) / 0.25);
 }

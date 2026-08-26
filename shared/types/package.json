@@ -1,0 +1,5 @@
+{
+  "name": "@coachflow/shared-types",
+  "private": true,
+  "type": "module"
+}
