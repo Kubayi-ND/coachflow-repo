@@ -39,7 +39,7 @@ export function PromptTemplateSection() {
 
   return (
     <section>
-      <h2 className="mb-2 text-lg">Prompt library</h2>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate">Prompt library</h2>
       {isLoading ? (
         <RowsSkeleton count={4} />
       ) : (
@@ -80,10 +80,10 @@ function PromptTemplateRow({
   const { data: history } = usePromptTemplateHistory(expanded ? template.entryGroupId : null);
 
   return (
-    <div className="rounded-md border border-slate/15 px-4 py-3">
+    <div className="rounded-xl border border-border bg-surface px-4 py-3 shadow-card">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium">{template.title}</p>
+          <p className="text-sm font-medium text-ink">{template.title}</p>
           <p className="mt-1 text-xs text-slate">
             {SESSION_TYPES[template.sessionType].label} — {template.phase}
           </p>
@@ -109,7 +109,7 @@ function PromptTemplateRow({
       )}
 
       {expanded && (
-        <div className="mt-3 space-y-1 border-t border-slate/10 pt-3">
+        <div className="mt-3 space-y-1 border-t border-border pt-3">
           {history?.map((version) => (
             <div key={version.id} className="text-xs text-slate">
               <span className="tabular-nums">v{version.version}</span> — {version.title}
@@ -147,7 +147,7 @@ function PostVersionForm({
   });
 
   return (
-    <form onSubmit={onSubmit} className="mt-3 space-y-2 border-t border-slate/10 pt-3">
+    <form onSubmit={onSubmit} className="mt-3 space-y-2 border-t border-border pt-3">
       <Input error={!!errors.title} {...register("title")} />
       {errors.title && <p className="text-xs text-amber">{errors.title.message}</p>}
       <Textarea rows={10} className="font-mono" error={!!errors.body} {...register("body")} />
@@ -180,7 +180,7 @@ function CreateTemplateRow({ sessionType, phase }: { sessionType: SessionTypeId;
   });
 
   return (
-    <div className="rounded-md border border-dashed border-slate/30 px-4 py-3">
+    <div className="rounded-xl border border-dashed border-border px-4 py-3">
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate">
           {SESSION_TYPES[sessionType].label} — {phase} (no prompt yet)
@@ -214,7 +214,7 @@ function RowsSkeleton({ count }: { count: number }) {
   return (
     <div className="space-y-2">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="flex items-center justify-between rounded-md border border-slate/15 px-4 py-3">
+        <div key={i} className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
           <div className="space-y-2">
             <Skeleton className="h-4 w-48" />
             <Skeleton className="h-3 w-32" />

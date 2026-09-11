@@ -17,7 +17,7 @@ function renderValue(value: unknown): ReactNode {
     return (
       <ul className="space-y-2">
         {value.map((item, i) => (
-          <li key={i} className="rounded-md border border-slate/10 px-3 py-2">
+          <li key={i} className="rounded-lg border border-border px-3 py-2">
             {renderValue(item)}
           </li>
         ))}

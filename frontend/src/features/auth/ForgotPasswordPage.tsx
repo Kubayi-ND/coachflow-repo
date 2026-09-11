@@ -27,9 +27,9 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="w-full max-w-sm space-y-4 rounded-lg border border-slate/20 p-8">
-        <h1 className="text-2xl">Reset your password</h1>
+    <div className="min-h-screen flex items-center justify-center bg-paper">
+      <div className="w-full max-w-sm space-y-4 rounded-xl border border-border bg-surface p-8 shadow-cardmd">
+        <h1 className="font-display text-2xl text-ink">Reset your password</h1>
 
         {submitted ? (
           <p className="text-sm text-slate">

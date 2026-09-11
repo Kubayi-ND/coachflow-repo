@@ -28,8 +28,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {messages.map((m) => (
           <div
             key={m.id}
-            className={`rounded-md px-4 py-2 text-sm shadow-lg shadow-ink/10 ${
-              m.tone === "success" ? "bg-teal text-paper" : "bg-amber text-paper"
+            className={`rounded-lg border px-4 py-2.5 text-sm font-medium shadow-panel ${
+              m.tone === "success"
+                ? "bg-teal text-white border-teal/60"
+                : "bg-red-600 text-white border-red-700 dark:bg-red-700 dark:border-red-800"
             }`}
           >
             {m.text}

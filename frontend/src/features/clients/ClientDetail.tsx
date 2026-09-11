@@ -2,6 +2,8 @@ import { useParams } from "react-router-dom";
 
 import { Pill } from "@/components/ui/Pill";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { StatTile } from "@/components/ui/StatTile";
+import { BookIcon, CalendarIcon, ExternalLinkIcon } from "@/components/ui/icons";
 import { useClients } from "@/hooks/useClients";
 import { useContextLibraryEntries } from "@/hooks/useContextLibrary";
 import { SESSION_TYPES } from "@/types";
@@ -19,22 +21,34 @@ export function ClientDetail() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl">{client.name}</h1>
+      <div className="rounded-xl border border-border bg-surface p-5 shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="font-display text-2xl text-ink">{client.name}</h1>
+            <Pill>{client.tenantId === "tenant_a" ? "Tenant A" : "Tenant B"}</Pill>
+          </div>
+          {client.driveFolderId && (
+            <a
+              href={`https://drive.google.com/drive/folders/${client.driveFolderId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-teal hover:text-teal/70"
+            >
+              Open Drive folder
+              <ExternalLinkIcon className="h-3.5 w-3.5" />
+            </a>
+          )}
+        </div>
+      </div>
 
-      {client.driveFolderId && (
-        <a
-          href={`https://drive.google.com/drive/folders/${client.driveFolderId}`}
-          target="_blank"
-          rel="noreferrer"
-          className="text-teal text-sm underline"
-        >
-          Open Drive folder (Transcripts / Context / Evaluations)
-        </a>
-      )}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
+        <StatTile label="Session types configured" value={client.sessionTypes.length} icon={<CalendarIcon className="h-5 w-5" />} />
+        <StatTile label="Context entries" value={contextEntries?.length ?? 0} icon={<BookIcon className="h-5 w-5" />} tone="teal" />
+      </div>
 
-      <section>
-        <h2 className="text-lg mb-2">Session types</h2>
-        <ul className="flex gap-2 flex-wrap">
+      <section className="rounded-xl border border-border bg-surface p-5 shadow-card">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate">Session types</h2>
+        <ul className="flex flex-wrap gap-2">
           {client.sessionTypes.map((type) => (
             <li key={type}>
               <Pill tone="teal">{SESSION_TYPES[type].label}</Pill>
@@ -43,19 +57,19 @@ export function ClientDetail() {
         </ul>
       </section>
 
-      <section>
-        <h2 className="text-lg mb-2">Context Library</h2>
+      <section className="rounded-xl border border-border bg-surface p-5 shadow-card">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate">Context Library</h2>
         {contextEntries && contextEntries.length === 0 && (
           <p className="text-sm text-slate">No Context Library entries for this client yet.</p>
         )}
         <ul className="space-y-2">
           {(contextEntries ?? []).map((entry) => (
-            <li key={entry.id} className="rounded-md border border-slate/15 px-4 py-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">{entry.title}</p>
+            <li key={entry.id} className="rounded-lg border border-border bg-surface-2 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-ink">{entry.title}</p>
                 {entry.clientId === null && <Pill tone="teal">Org-wide</Pill>}
               </div>
-              <p className="text-sm text-slate whitespace-pre-wrap">{entry.body}</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-slate">{entry.body}</p>
             </li>
           ))}
         </ul>
@@ -67,11 +81,17 @@ export function ClientDetail() {
 function ClientDetailSkeleton() {
   return (
     <div className="space-y-6">
-      <Skeleton className="h-8 w-48" />
-      <Skeleton className="h-4 w-64" />
-      <section>
-        <h2 className="text-lg mb-2">Session types</h2>
-        <ul className="flex gap-2 flex-wrap">
+      <div className="rounded-xl border border-border bg-surface p-5 shadow-card space-y-2">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-64" />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-24 rounded-xl" />
+      </div>
+      <section className="rounded-xl border border-border bg-surface p-5 shadow-card">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate">Session types</h2>
+        <ul className="flex flex-wrap gap-2">
           {Array.from({ length: 3 }).map((_, i) => (
             <li key={i}>
               <Skeleton className="h-6 w-28 rounded-full" />

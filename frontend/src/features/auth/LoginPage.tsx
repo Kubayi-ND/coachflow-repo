@@ -25,9 +25,9 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-lg border border-slate/20 p-8">
-        <h1 className="text-2xl">CoachFlow</h1>
+    <div className="min-h-screen flex items-center justify-center bg-paper">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-xl border border-border bg-surface p-8 shadow-cardmd">
+        <h1 className="font-display text-2xl text-ink">CoachFlow</h1>
         <div className="space-y-1">
           <label className="text-sm text-slate" htmlFor="email">
             Email
