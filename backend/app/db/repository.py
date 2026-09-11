@@ -125,6 +125,60 @@ async def get_client_by_id(client_id: UUID) -> ClientModel | None:
     return ClientModel(**row) if row else None
 
 
+async def create_client(
+    coach_user_id: UUID,
+    name: str,
+    email: str,
+    tenant_id: str,
+    drive_folder_id: str | None,
+    session_types: list[SessionType],
+) -> ClientModel:
+    result = (
+        get_supabase()
+        .table("clients")
+        .insert(
+            {
+                "name": name,
+                "email": email,
+                "coach_user_id": str(coach_user_id),
+                "tenant_id": tenant_id,
+                "drive_folder_id": drive_folder_id,
+                "session_types": [st.value for st in session_types],
+            }
+        )
+        .execute()
+    )
+    row = row_of(result)
+    assert row is not None
+    return ClientModel(**row)
+
+
+async def update_client(client_id: UUID, updates: dict[str, Any]) -> ClientModel | None:
+    result = get_supabase().table("clients").update(updates).eq("id", str(client_id)).execute()
+    row = row_of(result)
+    return ClientModel(**row) if row else None
+
+
+async def delete_client(client_id: UUID) -> None:
+    get_supabase().table("clients").delete().eq("id", str(client_id)).execute()
+
+
+async def add_assigned_client(user_id: UUID, client_id: UUID) -> None:
+    user = await get_user_by_id(user_id)
+    if user is None or client_id in user.assigned_client_ids:
+        return
+    updated_ids = [str(cid) for cid in user.assigned_client_ids] + [str(client_id)]
+    get_supabase().table("users").update({"assigned_client_ids": updated_ids}).eq("id", str(user_id)).execute()
+
+
+async def remove_assigned_client(user_id: UUID, client_id: UUID) -> None:
+    user = await get_user_by_id(user_id)
+    if user is None:
+        return
+    updated_ids = [str(cid) for cid in user.assigned_client_ids if cid != client_id]
+    get_supabase().table("users").update({"assigned_client_ids": updated_ids}).eq("id", str(user_id)).execute()
+
+
 async def list_sessions(tenant_id: str | None = None, client_id: UUID | None = None) -> list[Session]:
     query = get_supabase().table("sessions").select("*")
     if tenant_id:

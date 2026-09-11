@@ -34,7 +34,7 @@ class SessionHistoryItem(CamelModel):
 
 class SessionPrep(CamelModel):
     session: Session
-    prep: str
+    keypoints: list[str]
     scorecard: dict[str, object] | None = None
     citations: list[dict[str, object]] = Field(default_factory=list)
     history: list[SessionHistoryItem] = Field(default_factory=list)

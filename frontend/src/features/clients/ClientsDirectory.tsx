@@ -1,16 +1,60 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
+import { Button } from "@/components/ui/Button";
 import { Pill } from "@/components/ui/Pill";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
 import { ChevronRightIcon } from "@/components/ui/icons";
-import { useClients } from "@/hooks/useClients";
+import { useClients, useCreateClient } from "@/hooks/useClients";
+import type { SessionTypeId } from "@/types";
 
-/** Directory across both tenants (frontend/CLAUDE.md). */
+import { ClientForm } from "./ClientForm";
+
+/** Directory across both tenants (frontend/CLAUDE.md). A coach creates and
+ * manages their own clients here — self-assigned on creation, not assigned
+ * by an admin (see the plan's Context section for why this diverges from
+ * the doc as originally written). */
 export function ClientsDirectory() {
   const { data: clients, isLoading } = useClients();
+  const createClient = useCreateClient();
+  const toast = useToast();
+  const [creating, setCreating] = useState(false);
 
   return (
-    <div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-end">
+        <Button variant="secondary" onClick={() => setCreating((c) => !c)}>
+          {creating ? "Cancel" : "Add client"}
+        </Button>
+      </div>
+
+      {creating && (
+        <div className="rounded-xl border border-border bg-surface p-4 shadow-card">
+          <ClientForm
+            submitLabel="Add client"
+            showContext
+            isPending={createClient.isPending}
+            onCancel={() => setCreating(false)}
+            onSubmit={(values) => {
+              createClient.mutate(
+                {
+                  name: values.name,
+                  email: values.email,
+                  tenantId: values.tenantId,
+                  sessionTypes: values.sessionTypes as SessionTypeId[],
+                  context: values.context || undefined,
+                },
+                {
+                  onSuccess: () => setCreating(false),
+                  onError: () => toast.show("Failed to create client.", "error"),
+                }
+              );
+            }}
+          />
+        </div>
+      )}
+
       {isLoading && <ClientsDirectorySkeleton />}
       <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
         <ul className="divide-y divide-border">
