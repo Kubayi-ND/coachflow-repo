@@ -352,11 +352,16 @@ insert into prompt_templates (session_type, phase, title, body, version) values
 ## Prior 1-on-1 sessions with this client (most recent first)
 {prior_sessions}
 
-Draft a prep email to the coach summarizing: open threads from the last
-session, suggested GROW-model focus areas for this session, and 2-3 questions
-worth raising. Ground every claim in the Context Library or prior-session
-material above — do not invent history. Write in plain prose, ready to send
-after coach review.
+Produce a JSON object with these keys:
+- "greeting": a one-line salutation to the coach.
+- "intro": one short sentence introducing what this prep covers.
+- "keypoints": an array of strings — open threads from the last session,
+  suggested GROW-model focus areas, and 2-3 questions worth raising, each
+  as its own point. Ground every claim in the Context Library or
+  prior-session material above — do not invent history.
+- "signoff": a one-line closing.
+
+Respond with JSON only, matching this shape exactly.
 $tpl$, 1),
 ('one_on_one', 'post', '1-on-1 Executive Coaching — Post-Session Scorecard & Summary', $tpl$You are producing the post-session artifacts for a 1-on-1 executive coaching
 session that just occurred.
@@ -392,9 +397,15 @@ $tpl$, 1),
 ## Prior Quarterly Strategic Reviews with this client (most recent first)
 {prior_sessions}
 
-Draft a prep email summarizing quarter-over-quarter progress against prior
-strategic goals and 2-3 focus areas for this review. Ground every claim in
-the material above.
+Produce a JSON object with these keys:
+- "greeting": a one-line salutation to the coach.
+- "intro": one short sentence introducing what this prep covers.
+- "keypoints": an array of strings — quarter-over-quarter progress against
+  prior strategic goals and 2-3 focus areas for this review, each as its
+  own point. Ground every claim in the material above.
+- "signoff": a one-line closing.
+
+Respond with JSON only, matching this shape exactly.
 $tpl$, 1),
 ('quarterly_review', 'post', 'Quarterly Strategic Review — Post-Session Scorecard & Summary', $tpl$You are producing the post-session artifacts for a Quarterly Strategic Review
 that just occurred.
@@ -421,8 +432,15 @@ $tpl$, 1),
 ## Prior Annual Strategic Reviews with this client (most recent first)
 {prior_sessions}
 
-Draft a prep email summarizing year-over-year progress and 2-3 focus areas
-for this review. Ground every claim in the material above.
+Produce a JSON object with these keys:
+- "greeting": a one-line salutation to the coach.
+- "intro": one short sentence introducing what this prep covers.
+- "keypoints": an array of strings — year-over-year progress and 2-3 focus
+  areas for this review, each as its own point. Ground every claim in the
+  material above.
+- "signoff": a one-line closing.
+
+Respond with JSON only, matching this shape exactly.
 $tpl$, 1),
 ('annual_review', 'post', 'Annual Strategic Review — Post-Session Scorecard & Summary', $tpl$You are producing the post-session artifacts for an Annual Strategic Review
 that just occurred.
@@ -449,8 +467,15 @@ $tpl$, 1),
 ## Prior Monthly Strategic Council sessions with this client (most recent first)
 {prior_sessions}
 
-Draft a prep email summarizing open action items and 2-3 focus areas for this
-council session. Ground every claim in the material above.
+Produce a JSON object with these keys:
+- "greeting": a one-line salutation to the coach.
+- "intro": one short sentence introducing what this prep covers.
+- "keypoints": an array of strings — open action items and 2-3 focus areas
+  for this council session, each as its own point. Ground every claim in
+  the material above.
+- "signoff": a one-line closing.
+
+Respond with JSON only, matching this shape exactly.
 $tpl$, 1),
 ('monthly_council', 'post', 'Monthly Strategic Council — Post-Session Scorecard & Summary', $tpl$You are producing the post-session artifacts for a Monthly Strategic Council
 session that just occurred.

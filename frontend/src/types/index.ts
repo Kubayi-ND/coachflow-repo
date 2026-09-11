@@ -34,6 +34,21 @@ export interface Client {
   sessionTypes: import("./sessionTypes.generated").SessionTypeId[];
 }
 
+/** POST /api/clients body. coachUserId is never sent — a client is always
+ * self-assigned to the authenticated coach creating it, server-side. */
+export interface ClientCreateInput {
+  name: string;
+  email: string;
+  tenantId: TenantId;
+  driveFolderId?: string | null;
+  sessionTypes?: import("./sessionTypes.generated").SessionTypeId[];
+  /** Optional freeform coaching context — seeded server-side as a
+   * client-scoped Context Library entry, not stored on the client itself. */
+  context?: string;
+}
+
+export type ClientUpdateInput = Partial<Omit<ClientCreateInput, "context">>;
+
 export type SessionStatus = "upcoming" | "prep_generating" | "ready_for_review" | "sent";
 
 export interface Session {
@@ -49,7 +64,7 @@ export interface Session {
 
 export interface SessionPrep {
   session: Session;
-  prep: string;
+  keypoints: string[];
   scorecard: Record<string, unknown> | null;
   citations: Record<string, unknown>[];
   history: { id: string; eventDate: string; summary: string | null }[];

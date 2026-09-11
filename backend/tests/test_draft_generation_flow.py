@@ -49,6 +49,7 @@ class _FakeSupabase:
     def __init__(self, tables: dict[str, list[dict]]):
         self._tables = tables
         self.last_insert_table: str | None = None
+        self.last_inserted_row: dict | None = None
         self._insert_result = [{"id": str(uuid4())}]
 
     def table(self, name: str):
@@ -58,6 +59,7 @@ class _FakeSupabase:
 
         def insert(row: dict):
             original_insert(row)
+            self.last_inserted_row = row
             return MagicMock(execute=lambda: MagicMock(data=self._insert_result))
 
         table.insert = insert
@@ -97,7 +99,18 @@ async def test_generate_prep_email_draft_writes_pending_draft():
         patch("app.services.context_builder.embed_query_text", new=AsyncMock(return_value=[0.0] * 768)),
         patch(
             "app.services.draft_generator.generate",
-            new=AsyncMock(return_value=MagicMock(text="Here is your prep email.", tokens=42, latency_ms=100)),
+            new=AsyncMock(
+                return_value=MagicMock(
+                    as_json=lambda: {
+                        "greeting": "Hi Coach,",
+                        "intro": "Here's what to know before your session.",
+                        "keypoints": ["Open thread: budget approval", "Focus area: delegation"],
+                        "signoff": "Best,\nCoachFlow",
+                    },
+                    tokens=42,
+                    latency_ms=100,
+                )
+            ),
         ),
     ):
         draft_id = await draft_generator.generate_prep_email_draft(
@@ -105,3 +118,9 @@ async def test_generate_prep_email_draft_writes_pending_draft():
         )
 
     assert draft_id is not None
+    assert fake_supabase.last_insert_table == "ai_drafts"
+    body = fake_supabase.last_inserted_row["body"]
+    assert "Hi Coach," in body
+    assert "- Open thread: budget approval" in body
+    assert "- Focus area: delegation" in body
+    assert "Best,\nCoachFlow" in body

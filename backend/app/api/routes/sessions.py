@@ -35,7 +35,8 @@ async def get_session_prep(session_id: UUID, user: User = Depends(get_current_us
     if template is None:
         raise HTTPException(status_code=409, detail="No pre-session prompt configured")
 
-    result = await generate(template["body"].format(**context.as_prompt_vars()))
+    result = await generate(template["body"].format(**context.as_prompt_vars()), structured=True)
+    payload = result.as_json()
     history = [
         SessionHistoryItem(id=row["id"], event_date=row["event_date"], summary=row.get("summary"))
         for row in context.prior_sessions
@@ -55,7 +56,7 @@ async def get_session_prep(session_id: UUID, user: User = Depends(get_current_us
     )
     return SessionPrep(
         session=session,
-        prep=result.text,
+        keypoints=payload["keypoints"],
         scorecard=scorecard_row.get("structured_critique") if scorecard_row else None,
         citations=scorecard_row.get("citations", []) if scorecard_row else [],
         history=history,

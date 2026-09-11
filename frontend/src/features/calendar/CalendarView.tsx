@@ -237,7 +237,21 @@ function SessionPrepDrawer({ session, data, isLoading, error, activeTab, onTabCh
           {isLoading && <p className="text-sm text-slate">Building prep from the Context Library and prior sessions...</p>}
           {error && <p className="text-sm text-amber">Unable to load this session&apos;s preparation.</p>}
           {!isLoading && !error && data && activeTab === "prep" && (
-            <pre className="whitespace-pre-wrap font-body text-sm leading-6 text-ink">{data.prep}</pre>
+            data.keypoints.length > 0 ? (
+              <ul className="space-y-3">
+                {data.keypoints.map((point, i) => (
+                  <li
+                    key={i}
+                    className="flex gap-3 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm leading-6 text-ink"
+                  >
+                    <span className="text-teal">•</span>
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate">No prep keypoints are available for this session yet.</p>
+            )
           )}
           {!isLoading && !error && data && activeTab === "review" && (
             data.scorecard ? (

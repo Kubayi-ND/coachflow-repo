@@ -19,8 +19,15 @@ async def generate_prep_email_draft(session_id: UUID, client_id: UUID, tenant_id
         raise RuntimeError(f"No current prompt template for {session_type.value}/pre")
     prompt = template["body"].format(**context.as_prompt_vars())
 
-    result = await generate(prompt)
-    return _write_pending_draft(session_id, tenant_id, DraftType.PREP_EMAIL, result.text)
+    result = await generate(prompt, structured=True)
+    payload = result.as_json()
+    body = _assemble_prep_email(payload)
+    return _write_pending_draft(session_id, tenant_id, DraftType.PREP_EMAIL, body)
+
+
+def _assemble_prep_email(payload: dict) -> str:
+    bullets = "\n".join(f"- {point}" for point in payload["keypoints"])
+    return f"{payload['greeting']}\n\n{payload['intro']}\n\n{bullets}\n\n{payload['signoff']}"
 
 
 async def generate_summary_draft(session_id: UUID, tenant_id: str, client_summary: str) -> UUID:
