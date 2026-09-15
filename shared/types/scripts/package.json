@@ -1,0 +1,4 @@
+{
+  "//": "Scopes ESM to the session-type generator. generate-session-types.ts uses `import` / `import.meta.url`; without this, Node resolves the repo-root package.json (\"type\": \"commonjs\") as nearest and runs the .ts as CommonJS, failing with 'Cannot use import statement outside a module'. Keeps `node --experimental-strip-types` working regardless of any ancestor package.json.",
+  "type": "module"
+}
