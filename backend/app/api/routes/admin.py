@@ -16,7 +16,6 @@ from app.db.repository import (
     list_reminder_rules_for_user,
     list_users,
     post_prompt_template_version,
-    row_of,
     rows_of,
     update_user_status,
     upsert_reminder_rule_for_user,

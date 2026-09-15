@@ -38,7 +38,6 @@ import argparse
 import asyncio
 import json
 import logging
-import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -187,7 +186,6 @@ async def import_calendar(clients_by_email: dict[str, dict[str, Any]], *, dry_ru
     data = json.loads(calendar_path.read_text(encoding="utf-8"))
 
     reminder_rules = {row["session_type"]: row["lead_time_working_days"] for row in rows_of(supabase.table("reminder_rules").select("*").execute())}
-    clients_by_name = {row["name"].casefold(): row for row in clients_by_email.values()}
 
     for tenant_id, calendar_key in CALENDAR_TENANT_KEYS.items():
         events = data.get(calendar_key, [])
@@ -261,7 +259,7 @@ async def import_calendar(clients_by_email: dict[str, dict[str, Any]], *, dry_ru
 async def import_context_library(*, dry_run: bool) -> None:
     supabase = get_supabase()
     dir_path = PACK_DIR / "Grow Context Library"
-    existing_titles = set(r["title"] for r in rows_of(supabase.table("context_library").select("title").is_("client_id", "null").execute())) if not dry_run else set()
+    existing_titles = {r["title"] for r in rows_of(supabase.table("context_library").select("title").is_("client_id", "null").execute())} if not dry_run else set()
 
     for filename in CONTEXT_LIBRARY_FILES:
         path = dir_path / filename
@@ -274,7 +272,7 @@ async def import_context_library(*, dry_run: bool) -> None:
         text = _extract_text(path)
         await create_context_library_entry_with_embedding(None, title, text)
         print(f"context_library (org-wide): {title!r}")
-        time.sleep(5)
+        await asyncio.sleep(5)
 
 
 async def import_prior_notes(clients_by_email: dict[str, dict[str, Any]], *, dry_run: bool) -> None:
@@ -303,7 +301,7 @@ async def import_prior_notes(clients_by_email: dict[str, dict[str, Any]], *, dry
                 continue
         await create_context_library_entry_with_embedding(client["id"], title, text)
         print(f"context_library (client={client['name']}): {title!r}")
-        time.sleep(5)
+        await asyncio.sleep(5)
 
 
 async def import_transcripts(clients_by_email: dict[str, dict[str, Any]], *, dry_run: bool) -> None:

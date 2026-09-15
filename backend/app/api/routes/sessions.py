@@ -1,12 +1,23 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.ai.gemini_client import generate
 from app.core.security import assert_client_access, get_current_user
-from app.db.repository import get_current_prompt_template, get_supabase, list_sessions, list_unmatched_events, row_of
-from app.models.session import Session, SessionHistoryItem, SessionPrep, UnmatchedEvent, UnmatchedEventResolve
+from app.db.repository import (
+    get_current_prompt_template,
+    get_supabase,
+    list_sessions,
+    list_unmatched_events,
+    row_of,
+)
+from app.models.session import (
+    Session,
+    SessionHistoryItem,
+    SessionPrep,
+    UnmatchedEvent,
+    UnmatchedEventResolve,
+)
 from app.models.user import User
 from app.services.context_builder import build_context
 
