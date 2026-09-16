@@ -12,7 +12,7 @@ from functools import lru_cache
 from typing import Any, cast
 from uuid import UUID
 
-from supabase import Client, create_client
+from supabase import Client, create_client as create_supabase_client
 
 from app.core.config import get_settings
 from app.models.client import Client as ClientModel
@@ -26,7 +26,7 @@ from app.session_types_generated import SESSION_TYPES, SessionType
 @lru_cache
 def get_supabase() -> Client:
     settings = get_settings()
-    return create_client(settings.supabase_url, settings.supabase_service_role_key)
+    return create_supabase_client(settings.supabase_url, settings.supabase_service_role_key)
 
 
 def rows_of(response: Any) -> list[dict[str, Any]]:
