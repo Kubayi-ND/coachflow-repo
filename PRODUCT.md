@@ -12,7 +12,7 @@ Primary users are internal staff at a single executive-coaching practice: the co
 
 ## Product Purpose
 
-CoachFlow replaces a manual, multi-tool coaching workflow (Plaud recorder → Google Drive → Gemini Notebook → Obsidian prompts → manual email) with one system. It watches Google Calendar for five recurring session types, ingests meeting transcripts (Plaud exports and Gemini Meet's auto-captured transcripts), builds AI-assembled prep and post-session evaluations grounded in a coaching Context Library (ICF competencies + GROW model), and drafts every client-facing communication — but never sends anything without the coach approving it first.
+CoachFlow replaces a manual, multi-tool coaching workflow (Plaud recorder → Google Drive → Gemini Notebook → Obsidian prompts → manual email) with one system. It watches Google Calendar for four recurring session types (driving five workflow phases, A–E), ingests meeting transcripts (Plaud exports, Gemini Meet transcripts, and Teams captions), builds AI-assembled prep and post-session evaluations grounded in a coaching Context Library (ICF competencies + GROW model), and drafts every client-facing communication — but never sends anything without the coach approving it first.
 
 ## Positioning
 
@@ -20,9 +20,9 @@ The mechanism a competitor could not casually copy: AI drafts are grounded in a 
 
 ## Operating Context
 
-Two Google Workspace tenants (multi-tenant within Google, not single-tenant) — every client/session/draft carries a `tenant_id`, and the send step always reads that tenant back rather than re-deriving it, so a Tenant B client can never be emailed from Tenant A's identity.
+Two Google Workspace tenants are built (multi-tenant within Google, not single-tenant); the spec's third tenant, Microsoft 365, is designed but its build is deferred pending client confirmation (`docs/decisions.md` D-05). Every client/session/draft carries a `tenant_id`, and the send step always reads that tenant back rather than re-deriving it, so a Tenant B client can never be emailed from Tenant A's identity.
 
-Five recurring session types, each with its own calendar-naming convention and working-day lead time: 1-on-1 Executive Coaching, Quarterly Strategic Review, Annual Strategic Review, Monthly Strategic Council.
+Four recurring session types across five workflow phases (A–E), each type with its own calendar-naming convention and working-day lead time: 1-on-1 Executive Coaching, Quarterly Strategic Review, Annual Strategic Review, Monthly Strategic Council. Quarterly, annual and monthly sessions can be held with an individual or with a company team (D-02); engagements are kept separate — nothing from an individual reaches a team unless the coach deliberately shares it after an explicit warning, and individuals never see each other's information (D-03).
 
 Five-view daily coach workflow, in the order a coach actually uses them:
 1. **Calendar** — upcoming sessions across both tenants, countdown per session type's lead time, status chips, and an "unmatched events" exception queue for calendar events the naming-convention scanner couldn't classify.
@@ -55,6 +55,7 @@ No user research, screenshots, or reference sites were provided for this pass. T
 2. Tenant/mailbox identity must always be visible where a send decision is being made, especially the Approvals inbox.
 3. This is an operational daily-use tool, not a marketing surface — scanability and consistent interaction patterns outrank expressive visual flourish.
 4. AI output should read as grounded, not black-box — scorecards and drafts should let the coach trace claims back to their Context Library source via citations.
+5. Private coaching conversations stay private — any moment where individual content could reach a team (sharing it, or approving a team draft that uses it) must be visibly flagged and require a deliberate, acknowledged action.
 
 ## Accessibility & Inclusion
 
