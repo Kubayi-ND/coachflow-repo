@@ -10,7 +10,7 @@ Status: **Done** · **Partial** · **Missing** · **Conflict** (code contradicts
 
 Milestones: M0 docs alignment · M1 migrations + security lockdown · M2 blockers + session lifecycle · M3 engagements + separation · M4 calendar ingestion + tenant connection · M5 RAG · M6 pre-session phases A/C/D/E · M7 post-session phase B · M8 observability + metrics · M9 provider-neutral tenants · M10 deliverable docs
 
-_Last reviewed: 2026-09-16 (M0)._
+_Last reviewed: 2026-09-18 (privacy lockdown — see [`handoffs/2026-09-18-privacy-lockdown-and-rag-audit.md`](handoffs/2026-09-18-privacy-lockdown-and-rag-audit.md))._
 
 ## §3 A — Pre-session preparation (1-on-1)
 
@@ -78,11 +78,11 @@ _Last reviewed: 2026-09-16 (M0)._
 
 | Requirement | Status | Notes | Milestone |
 |---|---|---|---|
-| OAuth tokens handled securely, no cross-tenant leakage | Partial | Encrypted per-tenant vault and single send path exist; no connect flow; CORS allows all origins | M1, M4, M9 |
+| OAuth tokens handled securely, no cross-tenant leakage | Partial | Encrypted per-tenant vault and single send path exist; no connect flow. CORS now limited to `CORS_ALLOWED_ORIGINS` | M4, M9 |
 | Ambiguous QSR/ASR naming handled | Partial | Unmatched queue exists, but assigning a type doesn't create a session | M4 |
 | Transcript variability & speaker labels | Partial | See §3 B rows | M7 |
 | Objective, structured, grounded AI critique | Partial | No fixed rubric; citations not validated; scorecard shown as raw JSON | M5, M7 |
-| Confidential recordings & transcripts stay inside Grow's environment | Conflict | RLS missing on most tables while the anon key ships to the browser; drafts/sessions/scorecards endpoints not scoped to assigned clients | M1, M3 |
+| Confidential recordings & transcripts stay inside Grow's environment | Partial | Done in code: RLS on every table with anon/authenticated grants revoked, and every route that exposes client data scoped to assigned clients. Pending: the lockdown patch isn't applied to the live project yet; unmatched calendar events are visible to every coach; prompts go to Gemini unredacted (paid-tier key required) | M1, M3 |
 | ASM-001 standard titles | Partial | 1-on-1 only; see D-08 | M4 |
 | ASM-002 transcripts machine-readable via API/webhook/drop | Partial | Drive Inbox webhook only | M7 |
 | ASM-003 central Context Library folder | Done | Backfill importer | — |
@@ -108,7 +108,7 @@ _Last reviewed: 2026-09-16 (M0)._
 | Requirement | Status | Notes | Milestone |
 |---|---|---|---|
 | Individual vs team engagements, any session type for either (D-02) | Missing | No company or team concept | M3 |
-| Nothing from an individual reaches a team by default; individuals never see each other (D-03) | Conflict | Team events can be attached to an individual during import; client notes flow into every session type | M3, M4 |
+| Nothing from an individual reaches a team by default; individuals never see each other (D-03) | Partial | Done: one retrieval-scope function (`context_builder.resolve_retrieval_scope`) re-checks every row; only 1-on-1s with exactly one known attendee auto-match. Pending: there's no company/team model yet, and client notes still flow into every session type for that client | M3, M4 |
 | Coach can share individual → team with a required warning; shares are logged and revocable (D-03) | Missing | — | M3 |
-| Internal briefing separate from client draft (D-07) | Conflict | See §3 A | M2 |
+| Internal briefing separate from client draft (D-07) | Partial | `coach_briefings` stores the dashboard prep; the reminder job still writes its prep as an `ai_drafts` row | M2 |
 | Supabase CLI migrations (D-09) | Missing | — | M1 |

@@ -93,7 +93,8 @@ context behind each):
 | Variable | Notes |
 |---|---|
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWKS_URL` | From the Supabase project you decided on in §1 |
-| `GEMINI_API_KEY` | From the Gemini key you decided on in §1 |
+| `GEMINI_API_KEY` | From the Gemini key you decided on in §1. Must be from a billing-enabled (paid tier) project: free-tier prompts may be used by Google to improve its products, and these prompts contain client transcripts and notes |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated origin(s) of the deployed frontend, e.g. `https://coachflow.example.com`. Defaults to `http://localhost:5173` |
 | `TOKEN_VAULT_ENCRYPTION_KEY` | See §4.5 before setting this |
 | `GOOGLE_OAUTH_CLIENT_ID_TENANT_A/B`, `GOOGLE_OAUTH_CLIENT_SECRET_TENANT_A/B` | See §4.3 |
 | `APPS_SCRIPT_WEBHOOK_SHARED_SECRET` | See §4.4 — must match each tenant's `Config.gs` |
@@ -109,6 +110,7 @@ context behind each):
 ### 4.2 Supabase project
 
 - **Reusing the existing project:** nothing to do beyond copying the same values into the new `.env` files. Consider transferring project ownership to the work org's Supabase organization if billing should move too.
+- **Privacy lockdown:** the database denies the `anon`/`authenticated` roles everything (RLS on every table, grants revoked — see `backend/CLAUDE.md` "Database layer"). A new project gets this from `schema.sql`. An existing project provisioned before 2026-09-18 must also run `backend/app/db/patches/2026-09-18_privacy_lockdown.sql` (idempotent; its header has a query to check current grants first).
 - **New project:** run `backend/app/db/schema.sql` against it, then re-create the `users` table's role/`assigned_client_ids` rows, and re-seed `context_library`/`prompt_templates` (these are append-only tables — see `backend/CLAUDE.md`'s data model). Note the existing memory that the live Context Library table has been observed empty in this project before — verify what's actually populated rather than assuming the old project was fully seeded.
 
 ### 4.3 Google OAuth clients per tenant
@@ -203,6 +205,7 @@ cd frontend && pnpm install && pnpm dev
 
 - [ ] Login succeeds (confirms `SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are correct)
 - [ ] `/api/clients` and `/api/drafts?status=pending` return data, not 401s (confirms JWT verification against the new `SUPABASE_JWKS_URL`)
+- [ ] The public anon key can't read data directly: `curl "$SUPABASE_URL/rest/v1/clients?select=*" -H "apikey: $ANON_KEY"` returns an error or `[]`, and the same for `transcripts`, `ai_drafts` and `/rest/v1/rpc/match_context_library` (confirms the privacy lockdown is applied)
 - [ ] Trigger a test Drive upload in each tenant's Inbox folder and confirm `POST /webhooks/drive` is received (confirms Apps Script → new `APP_BASE_URL` wiring and the shared secret match)
 - [ ] Run one draft through the full Approvals-inbox loop (approve & send) in a sandbox tenant to confirm the Gmail send path and tenant credential vault both resolve correctly
 - [ ] `uv run pytest` and `pnpm test -- --run` both pass in the new environment
