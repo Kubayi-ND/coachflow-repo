@@ -84,7 +84,7 @@ async def test_import_calendar_backfill_flags_matched_event_with_no_resolvable_c
     files = [{"id": "file-1", "name": "events.json", "mimeType": "application/json"}]
     event_json = json.dumps(
         {
-            "summary": "Grow Quarterly Strategic Review",
+            "summary": "Grow Executive Coaching Jane Doe",
             "start": {"dateTime": "2026-01-05T10:00:00+00:00"},
             "attendees": [],
         }
@@ -104,3 +104,36 @@ async def test_import_calendar_backfill_flags_matched_event_with_no_resolvable_c
         await drive_backfill.import_calendar_backfill(uuid4(), "tenant_a", "folder-1")
 
     assert mock_record.call_args.args[6] == ImportItemStatus.FAILED
+
+
+@pytest.mark.asyncio
+async def test_import_calendar_backfill_sends_team_capable_session_types_to_unmatched_queue():
+    files = [{"id": "file-1", "name": "events.json", "mimeType": "application/json"}]
+    event_json = json.dumps(
+        {
+            "summary": "Grow Quarterly Strategic Review",
+            "start": {"dateTime": "2026-01-05T10:00:00+00:00"},
+            "attendees": [{"email": "jane@example.com"}],
+        }
+    ).encode()
+
+    mock_record = AsyncMock(return_value={})
+    with (
+        patch("app.services.drive_backfill.list_folder_contents", new=AsyncMock(return_value=files)),
+        patch("app.services.drive_backfill.get_import_item_by_file", new=AsyncMock(return_value=None)),
+        patch("app.services.drive_backfill.download_file", new=AsyncMock(return_value=event_json)),
+        patch("app.services.drive_backfill.list_clients_for_tenant", new=AsyncMock(return_value=[_client("Jane Doe", "jane@example.com")])),
+        patch("app.services.drive_backfill.get_supabase") as mock_get_supabase,
+        patch("app.services.drive_backfill.record_import_item", new=mock_record),
+        patch("app.services.drive_backfill.update_import_job_progress", new=AsyncMock()),
+    ):
+        mock_get_supabase.return_value.table.return_value.select.return_value.execute.return_value.data = []
+        await drive_backfill.import_calendar_backfill(uuid4(), "tenant_a", "folder-1")
+
+    # A quarterly review may be with an individual or a team (D-08): even with
+    # a known client on the invite it goes to the unmatched queue, never to a
+    # session attributed to that attendee.
+    assert mock_record.call_args.args[6] == ImportItemStatus.IMPORTED
+    tables_written = [call.args[0] for call in mock_get_supabase.return_value.table.call_args_list]
+    assert "unmatched_events" in tables_written
+    assert "sessions" not in tables_written

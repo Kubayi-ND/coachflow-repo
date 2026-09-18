@@ -1,3 +1,5 @@
+import hmac
+
 from fastapi import APIRouter, Header, HTTPException, status
 
 from app.core.config import get_settings
@@ -11,7 +13,8 @@ router = APIRouter()
 
 
 def _verify_secret(x_webhook_secret: str | None) -> None:
-    if x_webhook_secret != get_settings().apps_script_webhook_shared_secret:
+    expected = get_settings().apps_script_webhook_shared_secret
+    if x_webhook_secret is None or not hmac.compare_digest(x_webhook_secret.encode(), expected.encode()):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid webhook secret")
 
 

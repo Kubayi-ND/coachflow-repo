@@ -162,3 +162,40 @@ async def test_prior_sessions_only_surface_sent_summaries():
     assert "Great progress on goal X." in prior_sessions_text
     assert "Not yet approved." not in prior_sessions_text
     assert "no sent summary on file" in prior_sessions_text
+
+
+@pytest.mark.asyncio
+async def test_rows_outside_the_retrieval_scope_never_reach_the_prompt():
+    """Defence in depth: even if the RPC or a query returned another client's
+    entry or session, the scope check drops it before prompt assembly."""
+    client_id = uuid4()
+    other_client_id = uuid4()
+    leaked_entry = {
+        "id": "other-1", "entry_group_id": "g9", "client_id": str(other_client_id),
+        "title": "Someone else's notes", "body": "PRIVATE", "version": 1,
+    }
+    leaked_session = {
+        "id": "sess-x", "client_id": str(other_client_id), "type": "one_on_one",
+        "status": "sent", "event_date": "2026-01-01",
+    }
+    fake_supabase = _FakeSupabase(
+        tables={
+            "clients": [_client_row(client_id)],
+            "context_library_current": [],
+            "sessions": [leaked_session],
+            "ai_drafts": [],
+        },
+        rpc_rows=[leaked_entry],
+    )
+    fake_embed = AsyncMock(return_value=[0.0] * 768)
+
+    with (
+        patch.object(context_builder, "get_supabase", return_value=fake_supabase),
+        patch("app.db.repository.get_supabase", return_value=fake_supabase),
+        patch.object(context_builder, "embed_query_text", new=fake_embed),
+    ):
+        result = await context_builder.build_context(client_id, SessionType.ONE_ON_ONE)
+
+    assert result.context_library == []
+    assert result.prior_sessions == []
+    assert "PRIVATE" not in "".join(result.as_prompt_vars().values())

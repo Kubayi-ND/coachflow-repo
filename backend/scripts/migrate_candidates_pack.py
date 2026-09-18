@@ -46,6 +46,7 @@ from app.db.repository import get_supabase, get_user_by_email, row_of, rows_of
 from app.models.client import Client as ClientModel
 from app.models.transcript import TranscriptSource
 from app.services.calendar_scanner import add_working_days, match_session_type
+from app.services.client_matching import AUTO_MATCHED_SESSION_TYPES
 from app.services.context_library_admin import create_context_library_entry_with_embedding
 from app.services.document_extractor import _extract_docx_text, _extract_pdf_text
 from app.services.drive_backfill import insert_transcript_and_link
@@ -118,6 +119,12 @@ def _extract_text(path: Path) -> str:
     else:
         text = path.read_text(encoding="utf-8", errors="replace")
     return text.replace("\x00", "")  # Postgres text columns reject NUL bytes some PDF extractions leave in
+
+
+def _only_match(matches: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Exactly one client, or None — never the first of several."""
+    unique = {row["id"]: row for row in matches}
+    return next(iter(unique.values())) if len(unique) == 1 else None
 
 
 def _rel(path: Path) -> str:
@@ -225,9 +232,20 @@ async def import_calendar(clients_by_email: dict[str, dict[str, Any]], *, dry_ru
                 continue
 
             attendee_emails = {a.get("email", "").strip().lower() for a in event.get("attendees", []) if not a.get("organizer")}
-            client = next((c for c in clients_by_email.values() if c["email"].lower() in attendee_emails), None)
+            client = _only_match(
+                [c for c in clients_by_email.values() if c["email"].lower() in attendee_emails]
+                if session_type in AUTO_MATCHED_SESSION_TYPES
+                else []
+            )
             if client is None:
-                logger.warning("Matched session type but no client attendee for event %r (%s)", summary, tenant_id)
+                # Not a 1-on-1 with exactly one known client: it may be a team
+                # session (D-08), so it goes to the coach's queue, never to
+                # the first matching attendee.
+                if not dry_run:
+                    supabase.table("unmatched_events").insert(
+                        {"tenant_id": tenant_id, "raw_event_summary": summary, "event_date": event_date.isoformat()}
+                    ).execute()
+                logger.warning("Session-type event %r (%s) not auto-matched to one client; filed as unmatched", summary, tenant_id)
                 continue
 
             if dry_run:
@@ -251,6 +269,7 @@ async def import_calendar(clients_by_email: dict[str, dict[str, Any]], *, dry_ru
                     "event_date": event_date.isoformat(),
                     "trigger_date": trigger_date.isoformat(),
                     "status": "upcoming",
+                    "external_event_id": event.get("id"),
                 }
             ).execute()
             print(f"session: {client['name']} / {session_type.value} @ {event_date.isoformat()}")
@@ -286,9 +305,9 @@ async def import_prior_notes(clients_by_email: dict[str, dict[str, Any]], *, dry
             continue
         text = path.read_text(encoding="utf-8")
         title = text.splitlines()[0].lstrip("# ").strip()
-        client = next((c for name, c in clients_by_name.items() if token in name), None)
+        client = _only_match([c for name, c in clients_by_name.items() if token in name.split()])
         if client is None:
-            logger.warning("No client match for prior-notes file %s (token=%r)", path.name, token)
+            logger.warning("No single client match for prior-notes file %s (token=%r)", path.name, token)
             continue
 
         if dry_run:
@@ -311,9 +330,9 @@ async def import_transcripts(clients_by_email: dict[str, dict[str, Any]], *, dry
 
     for filename, (token, source) in TRANSCRIPT_FILES.items():
         path = dir_path / filename
-        client = next((c for name, c in clients_by_name.items() if token in name), None)
+        client = _only_match([c for name, c in clients_by_name.items() if token in name.split()])
         if client is None:
-            logger.warning("No client match for transcript file %s (token=%r)", filename, token)
+            logger.warning("No single client match for transcript file %s (token=%r)", filename, token)
             continue
 
         rel_id = _rel(path)

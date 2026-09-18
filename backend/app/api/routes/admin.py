@@ -3,7 +3,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.security import require_admin, require_coach_or_admin
+from app.core.security import (
+    accessible_client_ids,
+    assert_client_access,
+    assert_context_library_group_access,
+    assert_context_library_write_access,
+    require_admin,
+    require_coach_or_admin,
+)
 from app.db.repository import (
     create_prompt_template,
     create_user_record,
@@ -98,7 +105,9 @@ async def post_prompt_template_version_route(
 async def get_context_library_entries(
     client_id: UUID | None = None, user: User = Depends(require_coach_or_admin)
 ) -> list[ContextLibraryEntry]:
-    rows = await list_context_library_entries(client_id)
+    if client_id is not None:
+        assert_client_access(user, client_id)
+    rows = await list_context_library_entries(accessible_client_ids(user), client_id)
     return [ContextLibraryEntry(**row) for row in rows]
 
 
@@ -106,6 +115,7 @@ async def get_context_library_entries(
 async def get_context_library_history_route(
     entry_group_id: UUID, user: User = Depends(require_coach_or_admin)
 ) -> list[ContextLibraryEntry]:
+    await assert_context_library_group_access(user, entry_group_id)
     rows = await get_context_library_history(entry_group_id)
     return [ContextLibraryEntry(**row) for row in rows]
 
@@ -114,6 +124,7 @@ async def get_context_library_history_route(
 async def create_context_library_entry_route(
     body: ContextLibraryEntryCreate, user: User = Depends(require_coach_or_admin)
 ) -> ContextLibraryEntry:
+    assert_context_library_write_access(user, body.client_id)
     row = await create_context_library_entry_with_embedding(body.client_id, body.title, body.body)
     return ContextLibraryEntry(**row)
 
@@ -122,6 +133,8 @@ async def create_context_library_entry_route(
 async def post_context_library_version_route(
     entry_group_id: UUID, body: ContextLibraryEntryVersion, user: User = Depends(require_coach_or_admin)
 ) -> ContextLibraryEntry:
+    client_id = await assert_context_library_group_access(user, entry_group_id)
+    assert_context_library_write_access(user, client_id)
     try:
         row = await post_context_library_version_with_embedding(entry_group_id, body.title, body.body)
     except LookupError as exc:

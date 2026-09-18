@@ -1,7 +1,9 @@
 """Thin data-access layer — one function per table per operation, per
-backend/CLAUDE.md. This is also where per-client authorization is enforced
-for `general` users (via core.security.assert_client_access), so a new route
-can't accidentally read/write another coach's client data.
+backend/CLAUDE.md. Per-client authorization is NOT done here (core.security
+imports this module, so it can't import back): routes call
+core.security.assert_client_access / assert_session_access for single rows,
+and pass core.security.accessible_client_ids(user) into the list functions
+below, which restrict to those clients whenever it isn't None.
 
 Uses supabase-py against the Supabase Postgres REST interface (the
 hackathon-scale option backend/CLAUDE.md calls out; swap for SQLAlchemy +
@@ -12,7 +14,8 @@ from functools import lru_cache
 from typing import Any, cast
 from uuid import UUID
 
-from supabase import Client, create_client
+from supabase import Client
+from supabase import create_client as create_supabase_client
 
 from app.core.config import get_settings
 from app.models.client import Client as ClientModel
@@ -26,7 +29,7 @@ from app.session_types_generated import SESSION_TYPES, SessionType
 @lru_cache
 def get_supabase() -> Client:
     settings = get_settings()
-    return create_client(settings.supabase_url, settings.supabase_service_role_key)
+    return create_supabase_client(settings.supabase_url, settings.supabase_service_role_key)
 
 
 def rows_of(response: Any) -> list[dict[str, Any]]:
@@ -179,13 +182,41 @@ async def remove_assigned_client(user_id: UUID, client_id: UUID) -> None:
     get_supabase().table("users").update({"assigned_client_ids": updated_ids}).eq("id", str(user_id)).execute()
 
 
-async def list_sessions(tenant_id: str | None = None, client_id: UUID | None = None) -> list[Session]:
+def _as_strs(ids: list[UUID]) -> list[str]:
+    return [str(i) for i in ids]
+
+
+async def get_session_by_id(session_id: UUID) -> Session | None:
+    row = row_of(get_supabase().table("sessions").select("*").eq("id", str(session_id)).limit(1).execute())
+    return Session(**row) if row else None
+
+
+async def list_sessions(
+    client_ids: list[UUID] | None, tenant_id: str | None = None, client_id: UUID | None = None
+) -> list[Session]:
+    """client_ids: the caller's accessible clients (None = unrestricted)."""
+    if client_ids is not None and not client_ids:
+        return []
     query = get_supabase().table("sessions").select("*")
+    if client_ids is not None:
+        query = query.in_("client_id", _as_strs(client_ids))
     if tenant_id:
         query = query.eq("tenant_id", tenant_id)
     if client_id:
         query = query.eq("client_id", str(client_id))
     return [Session(**row) for row in rows_of(query.execute())]
+
+
+async def get_coach_briefing(session_id: UUID) -> dict[str, Any] | None:
+    return row_of(
+        get_supabase().table("coach_briefings").select("*").eq("session_id", str(session_id)).limit(1).execute()
+    )
+
+
+async def save_coach_briefing(session_id: UUID, keypoints: list[str]) -> None:
+    get_supabase().table("coach_briefings").upsert(
+        {"session_id": str(session_id), "keypoints": keypoints, "created_at": "now()"}, on_conflict="session_id"
+    ).execute()
 
 
 async def list_unmatched_events(tenant_id: str | None = None) -> list[UnmatchedEvent]:
@@ -231,8 +262,19 @@ async def upsert_reminder_rule_for_user(
     return row
 
 
-async def list_drafts(status: DraftStatus | None = None) -> list[AiDraft]:
+async def list_drafts(client_ids: list[UUID] | None, status: DraftStatus | None = None) -> list[AiDraft]:
+    """client_ids: the caller's accessible clients (None = unrestricted).
+    Drafts hang off sessions, so the restriction goes through session ids."""
     query = get_supabase().table("ai_drafts").select("*")
+    if client_ids is not None:
+        if not client_ids:
+            return []
+        session_rows = rows_of(
+            get_supabase().table("sessions").select("id").in_("client_id", _as_strs(client_ids)).execute()
+        )
+        if not session_rows:
+            return []
+        query = query.in_("session_id", [row["id"] for row in session_rows])
     if status:
         query = query.eq("status", status.value)
     return [AiDraft(**row) for row in rows_of(query.execute())]
@@ -263,11 +305,34 @@ async def mark_draft_rejected(draft_id: UUID, reason: str) -> None:
 # generation and the admin list never see stale versions.
 
 
-async def list_context_library_entries(client_id: UUID | None = None) -> list[dict[str, Any]]:
+async def list_context_library_entries(
+    client_ids: list[UUID] | None, client_id: UUID | None = None
+) -> list[dict[str, Any]]:
+    """Org-wide entries plus client entries the caller may see.
+    client_ids: the caller's accessible clients (None = unrestricted);
+    client_id narrows to one client (plus org-wide)."""
     query = get_supabase().table("context_library_current").select("*")
     if client_id:
         query = query.or_(f"client_id.eq.{client_id},client_id.is.null")
+    elif client_ids is not None:
+        allowed = ",".join(_as_strs(client_ids))
+        query = query.or_(f"client_id.in.({allowed}),client_id.is.null") if allowed else query.is_("client_id", "null")
     return rows_of(query.execute())
+
+
+async def get_context_library_group_client_id(entry_group_id: UUID) -> tuple[bool, UUID | None]:
+    """(exists, client_id) for an entry group — client_id None = org-wide."""
+    row = row_of(
+        get_supabase()
+        .table("context_library")
+        .select("client_id")
+        .eq("entry_group_id", str(entry_group_id))
+        .limit(1)
+        .execute()
+    )
+    if row is None:
+        return False, None
+    return True, UUID(row["client_id"]) if row["client_id"] else None
 
 
 async def get_context_library_history(entry_group_id: UUID) -> list[dict[str, Any]]:

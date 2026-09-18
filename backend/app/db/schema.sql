@@ -64,6 +64,11 @@
 --   create index if not exists import_jobs_tenant_id_idx on import_jobs(tenant_id);
 --   create index if not exists import_items_job_id_idx on import_items(job_id);
 --   create index if not exists import_items_status_idx on import_items(status);
+--
+-- Already provisioned a DB before the privacy lockdown (RLS on every table,
+-- no anon/authenticated grants, sessions.external_event_id,
+-- transcripts.session_id, coach_briefings)? Run the idempotent script:
+--   psql "$DATABASE_URL" -f app/db/patches/2026-09-18_privacy_lockdown.sql
 
 create extension if not exists "pgcrypto";
 create extension if not exists "vector";
@@ -128,6 +133,9 @@ create table sessions (
     trigger_date timestamptz not null,          -- event_date minus the type's working-day lead time
     transcript_id uuid,                          -- fk added below after transcripts exists
     status session_status not null default 'upcoming',
+    external_event_id text unique,               -- calendar event id; the scanner upserts on it so a
+                                                 -- reschedule updates its own session and two clients'
+                                                 -- sessions at the same time never merge
     created_at timestamptz not null default now()
 );
 
@@ -137,7 +145,8 @@ create table unmatched_events (
     raw_event_summary text not null,
     event_date timestamptz not null,
     resolved_session_type session_type,          -- set once the coach assigns a type in the Calendar view
-    created_at timestamptz not null default now()
+    created_at timestamptz not null default now(),
+    unique (tenant_id, raw_event_summary, event_date)
 );
 
 create table transcripts (
@@ -146,6 +155,7 @@ create table transcripts (
     source transcript_source not null,
     normalized_text jsonb,                        -- list of {speaker, timestamp, text}
     parse_status parse_status not null default 'ok',
+    session_id uuid references sessions(id) on delete set null, -- owner; null until linked to a session
     created_at timestamptz not null default now()
 );
 
@@ -216,6 +226,16 @@ create table prompt_templates (
     created_at timestamptz not null default now()
 );
 
+-- The internal coach briefing for a session (D-07): shown in the dashboard,
+-- never approval-gated, never emailed, never stored in ai_drafts. Also caches
+-- the generated prep so viewing a session doesn't re-send its client's data
+-- to Gemini on every page load.
+create table coach_briefings (
+    session_id uuid primary key references sessions(id) on delete cascade,
+    keypoints jsonb not null,
+    created_at timestamptz not null default now()
+);
+
 create table tasks_sync (
     scorecard_id uuid not null references scorecards(id) on delete cascade,
     google_task_id text not null,
@@ -281,12 +301,30 @@ create index import_items_job_id_idx on import_items(job_id);
 create index import_items_status_idx on import_items(status);
 create index reminder_rules_user_id_idx on reminder_rules(user_id);
 
--- RLS is enabled even though the API uses a service-role connection. These
--- policies protect direct Supabase access and document the data boundary;
--- API routes still enforce the same authenticated-user checks explicitly.
+-- Privacy lockdown. The browser holds the public anon key (for Supabase Auth
+-- only) and never queries tables directly; every data read goes through the
+-- backend, which connects with the service-role key (bypasses RLS) and
+-- enforces per-client access itself (core/security.py). So the database
+-- denies anon/authenticated by default: RLS on every table with no policies
+-- except reminder_rules' own-row one, table/function grants revoked, and the
+-- `_current` views run as the caller (security_invoker) so they can't be
+-- used to read around RLS. Keep patches/2026-09-18_privacy_lockdown.sql in
+-- sync with this block.
+alter table tenants enable row level security;
+alter table users enable row level security;
+alter table clients enable row level security;
+alter table sessions enable row level security;
+alter table unmatched_events enable row level security;
+alter table transcripts enable row level security;
 alter table context_library enable row level security;
-create policy context_library_authenticated_access on context_library
-    for all to authenticated using (true) with check (true);
+alter table scorecards enable row level security;
+alter table ai_drafts enable row level security;
+alter table coach_briefings enable row level security;
+alter table prompt_templates enable row level security;
+alter table tasks_sync enable row level security;
+alter table metrics_log enable row level security;
+alter table import_jobs enable row level security;
+alter table import_items enable row level security;
 
 alter table reminder_rules enable row level security;
 create policy reminder_rules_own_data on reminder_rules
@@ -298,7 +336,7 @@ create policy reminder_rules_own_data on reminder_rules
 -- Library or prompt template content (context_builder.py, draft_generator.py,
 -- scorecard_generator.py) queries these views, never the raw append-only
 -- tables above, so historical versions never leak into an AI prompt.
-create view context_library_current as
+create view context_library_current with (security_invoker = true) as
     select distinct on (entry_group_id) *
     from context_library
     order by entry_group_id, version desc;
@@ -331,7 +369,7 @@ as $$
     limit match_count;
 $$;
 
-create view prompt_templates_current as
+create view prompt_templates_current with (security_invoker = true) as
     select distinct on (entry_group_id) *
     from prompt_templates
     order by entry_group_id, version desc;
@@ -491,3 +529,12 @@ session that just occurred.
 
 Respond with JSON only: {{"scorecard": {{...with "citations"...}}, "client_summary": "..."}}.
 $tpl$, 1);
+
+-- Nothing in the public schema is reachable with the anon or authenticated
+-- roles; see the privacy lockdown note above.
+revoke all on all tables in schema public from anon, authenticated;
+revoke all on all sequences in schema public from anon, authenticated;
+revoke execute on function match_context_library(vector, uuid, int) from public, anon, authenticated;
+alter default privileges in schema public revoke all on tables from anon, authenticated;
+alter default privileges in schema public revoke all on sequences from anon, authenticated;
+alter default privileges in schema public revoke execute on functions from anon, authenticated;

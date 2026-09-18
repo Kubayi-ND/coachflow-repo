@@ -2,12 +2,20 @@
 same type only — a 1-on-1 draft must never pull strategic-council history and
 vice versa (backend/CLAUDE.md phase 4).
 
+Everything a prompt may contain is decided by resolve_retrieval_scope — the
+single retrieval-scope function CLAUDE.md requires. Today a scope is one
+client plus org-wide reference material; company/team engagements and
+explicit shares plug in here later, not in the callers. Every row fetched is
+re-checked against the scope before it can reach a prompt, so a bug in a
+query (or the RPC) fails closed instead of leaking another client's data.
+
 Context Library retrieval: org-wide ICF/GROW entries are always included
 unranked (foundational material every session should ground against);
 client-specific entries are ranked by embedding similarity against a query
 built from the transcript (post-session) or a synthetic session-type +
 client-profile query (pre-session, no transcript exists yet).
 """
+from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
@@ -19,6 +27,22 @@ _CLIENT_SPECIFIC_MATCH_COUNT = 6
 _TRANSCRIPT_QUERY_HEAD_CHARS = 4000
 _TRANSCRIPT_QUERY_TAIL_CHARS = 4000
 _TRANSCRIPT_QUERY_CAP_CHARS = _TRANSCRIPT_QUERY_HEAD_CHARS + _TRANSCRIPT_QUERY_TAIL_CHARS
+
+
+@dataclass(frozen=True)
+class RetrievalScope:
+    client_id: UUID
+
+    def allows_library_row(self, row: dict[str, Any]) -> bool:
+        owner = row.get("client_id")
+        return owner is None or str(owner) == str(self.client_id)
+
+    def allows_session_row(self, row: dict[str, Any]) -> bool:
+        return str(row.get("client_id")) == str(self.client_id)
+
+
+def resolve_retrieval_scope(client_id: UUID) -> RetrievalScope:
+    return RetrievalScope(client_id=client_id)
 
 
 class AssembledContext:
@@ -47,8 +71,9 @@ async def build_context(
     transcript_text: str | None = None,
 ) -> AssembledContext:
     supabase = get_supabase()
+    scope = resolve_retrieval_scope(client_id)
 
-    client_row = rows_of(supabase.table("clients").select("*").eq("id", str(client_id)).limit(1).execute())
+    client_row = rows_of(supabase.table("clients").select("*").eq("id", str(scope.client_id)).limit(1).execute())
     client_profile = client_row[0] if client_row else {}
 
     query_text = _build_query_text(transcript_text, client_profile, session_type)
@@ -57,22 +82,38 @@ async def build_context(
     org_wide_rows = rows_of(
         supabase.table("context_library_current").select("*").is_("client_id", "null").execute()
     )
-    ranked_client_rows = await match_context_library(query_embedding, client_id, match_count=_CLIENT_SPECIFIC_MATCH_COUNT)
-    context_rows = _merge_context_rows(org_wide_rows, ranked_client_rows)
+    ranked_client_rows = await match_context_library(
+        query_embedding, scope.client_id, match_count=_CLIENT_SPECIFIC_MATCH_COUNT
+    )
+    context_rows = [row for row in _merge_context_rows(org_wide_rows, ranked_client_rows) if scope.allows_library_row(row)]
 
+    prior_sessions = await load_prior_sessions(scope, session_type, exclude_session_id)
+    return AssembledContext(client_profile, context_rows, prior_sessions)
+
+
+async def load_prior_sessions(
+    scope: RetrievalScope, session_type: SessionType, exclude_session_id: UUID | None = None
+) -> list[dict[str, Any]]:
+    """Prior sent sessions of the same type inside the scope, newest first,
+    each with its sent summary attached. No AI call — the prep route reuses
+    this when serving a cached briefing."""
+    supabase = get_supabase()
     prior_query = (
         supabase.table("sessions")
         .select("*")
-        .eq("client_id", str(client_id))
+        .eq("client_id", str(scope.client_id))
         .eq("type", session_type.value)
         .eq("status", "sent")
         .order("event_date", desc=True)
         .limit(5)
     )
-    prior_sessions = [row for row in rows_of(prior_query.execute()) if row["id"] != str(exclude_session_id)]
+    prior_sessions = [
+        row
+        for row in rows_of(prior_query.execute())
+        if row["id"] != str(exclude_session_id) and scope.allows_session_row(row)
+    ]
     _attach_prior_session_summaries(supabase, prior_sessions)
-
-    return AssembledContext(client_profile, context_rows, prior_sessions)
+    return prior_sessions
 
 
 def _build_query_text(transcript_text: str | None, client_profile: dict[str, Any], session_type: SessionType) -> str:

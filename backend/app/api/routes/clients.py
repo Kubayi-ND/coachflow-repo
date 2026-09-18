@@ -13,7 +13,7 @@ from app.db.repository import (
     update_client,
 )
 from app.models.client import Client, ClientCreate, ClientUpdate
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.services.context_library_admin import create_context_library_entry_with_embedding
 
 router = APIRouter()
@@ -57,6 +57,10 @@ async def update_client_route(
     updates = body.model_dump(exclude_unset=True, mode="json")
     if not updates:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "No fields to update")
+    # Approved drafts are sent to clients.email, so changing it redirects a
+    # client's private summaries — only an admin may do that.
+    if "email" in updates and updates["email"] != existing.email and user.role != UserRole.ADMIN:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only admins can change a client's email address")
 
     updated = await update_client(client_id, updates)
     assert updated is not None

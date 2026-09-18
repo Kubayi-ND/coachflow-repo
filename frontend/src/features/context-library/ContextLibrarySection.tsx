@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/Select";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
 import { useClients } from "@/hooks/useClients";
+import { useRole } from "@/hooks/useRole";
 import {
   useContextLibraryEntries,
   useContextLibraryHistory,
@@ -33,6 +34,7 @@ type EntryFormValues = z.infer<typeof entrySchema>;
  * prompt so the model can judge relevance among the entries it's given. */
 export function ContextLibrarySection() {
   const { data: clients } = useClients();
+  const { isAdmin } = useRole();
   const [filterClientId, setFilterClientId] = useState("");
   const { data: entries, isLoading } = useContextLibraryEntries(filterClientId || undefined);
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export function ContextLibrarySection() {
       <div className="mb-4 flex items-center gap-2">
         <span className="text-xs text-slate">Filter</span>
         <Select value={filterClientId} onChange={(e) => setFilterClientId(e.target.value)}>
-          <option value="">All entries</option>
+          <option value="">Org-wide + my clients</option>
           {clients?.map((client) => (
             <option key={client.id} value={client.id}>
               {client.name}
@@ -59,7 +61,7 @@ export function ContextLibrarySection() {
         </Select>
       </div>
 
-      {creating && <NewEntryForm clients={clients ?? []} onDone={() => setCreating(false)} />}
+      {creating && <NewEntryForm clients={clients ?? []} isAdmin={isAdmin} onDone={() => setCreating(false)} />}
 
       {isLoading ? (
         <RowsSkeleton count={3} />
@@ -70,6 +72,7 @@ export function ContextLibrarySection() {
               key={entry.entryGroupId}
               entry={entry}
               clientName={clients?.find((c) => c.id === entry.clientId)?.name}
+              canEdit={isAdmin || entry.clientId !== null}
               expanded={expandedGroupId === entry.entryGroupId}
               onToggleHistory={() =>
                 setExpandedGroupId((prev) => (prev === entry.entryGroupId ? null : entry.entryGroupId))
@@ -84,8 +87,11 @@ export function ContextLibrarySection() {
   );
 }
 
-function NewEntryForm({ clients, onDone }: { clients: Client[]; onDone: () => void }) {
-  const [clientId, setClientId] = useState("");
+/** Scope defaults to a client, never org-wide: an org-wide entry is included
+ * in every client's AI prompts, so only admins can create one (the backend
+ * enforces this too). */
+function NewEntryForm({ clients, isAdmin, onDone }: { clients: Client[]; isAdmin: boolean; onDone: () => void }) {
+  const [clientId, setClientId] = useState(clients[0]?.id ?? "");
   const createEntry = useCreateContextLibraryEntry();
   const {
     register,
@@ -100,7 +106,7 @@ function NewEntryForm({ clients, onDone }: { clients: Client[]; onDone: () => vo
       {
         onSuccess: () => {
           reset();
-          setClientId("");
+          setClientId(clients[0]?.id ?? "");
           onDone();
         },
       }
@@ -112,12 +118,13 @@ function NewEntryForm({ clients, onDone }: { clients: Client[]; onDone: () => vo
       <div>
         <label className="mb-1 block text-xs text-slate">Scope</label>
         <Select value={clientId} onChange={(e) => setClientId(e.target.value)}>
-          <option value="">Org-wide (all clients)</option>
+          {!isAdmin && clients.length === 0 && <option value="">No assigned clients</option>}
           {clients.map((client) => (
             <option key={client.id} value={client.id}>
               {client.name}
             </option>
           ))}
+          {isAdmin && <option value="">Org-wide (included in every client&apos;s AI prompts)</option>}
         </Select>
       </div>
       <div>
@@ -130,7 +137,7 @@ function NewEntryForm({ clients, onDone }: { clients: Client[]; onDone: () => vo
         <Textarea rows={6} error={!!errors.body} {...register("body")} />
         {errors.body && <p className="mt-1 text-xs text-amber">{errors.body.message}</p>}
       </div>
-      <Button type="submit" isLoading={createEntry.isPending}>
+      <Button type="submit" isLoading={createEntry.isPending} disabled={!isAdmin && !clientId}>
         Create entry
       </Button>
     </form>
@@ -140,11 +147,13 @@ function NewEntryForm({ clients, onDone }: { clients: Client[]; onDone: () => vo
 function ContextLibraryRow({
   entry,
   clientName,
+  canEdit,
   expanded,
   onToggleHistory,
 }: {
   entry: ContextLibraryEntry;
   clientName?: string;
+  canEdit: boolean;
   expanded: boolean;
   onToggleHistory: () => void;
 }) {
@@ -164,9 +173,11 @@ function ContextLibraryRow({
         </div>
       </div>
       <div className="mt-2 flex gap-3 text-xs">
-        <button className="text-teal hover:underline" onClick={() => setEditing((e) => !e)}>
-          {editing ? "Cancel" : "Post new version"}
-        </button>
+        {canEdit && (
+          <button className="text-teal hover:underline" onClick={() => setEditing((e) => !e)}>
+            {editing ? "Cancel" : "Post new version"}
+          </button>
+        )}
         <button className="text-slate hover:underline" onClick={onToggleHistory}>
           {expanded ? "Hide history" : "View history"}
         </button>

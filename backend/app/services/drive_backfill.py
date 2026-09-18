@@ -12,7 +12,7 @@ a client (see resolve_import_item).
 """
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -33,6 +33,7 @@ from app.models.client import Client as ClientModel
 from app.models.imports import ImportItemStatus, ImportJobStatus, ImportSource
 from app.models.transcript import TranscriptSource
 from app.services.calendar_scanner import add_working_days, match_session_type
+from app.services.client_matching import AUTO_MATCHED_SESSION_TYPES
 from app.services.client_matching import (
     match_client_by_attendee_email as _match_client_by_attendee_email,
 )
@@ -43,6 +44,8 @@ from app.services.transcript_normalizer import normalize
 from app.session_types_generated import SESSION_TYPES
 
 logger = logging.getLogger(__name__)
+
+_MAX_TRANSCRIPT_LINK_DISTANCE = timedelta(days=2)
 
 
 async def import_calendar_backfill(job_id: UUID, tenant_id: str, folder_id: str) -> None:
@@ -117,10 +120,11 @@ def parse_calendar_events(raw_bytes: bytes) -> list[dict[str, Any]]:
 async def import_one_calendar_event(
     tenant_id: str, event: dict[str, Any], clients: list[ClientModel], reminder_rules: dict[str, int]
 ) -> bool:
-    """Returns False only when the event matched a session-naming convention
-    but no client could be resolved — sessions.client_id is NOT NULL, so
-    there's nowhere valid to write it; a naming mismatch instead files to
-    unmatched_events exactly like the live scanner and counts as handled."""
+    """Returns False only when a 1-on-1 matched the naming convention but no
+    single client could be resolved — sessions.client_id is NOT NULL, so
+    there's nowhere valid to write it. A naming mismatch, or a quarterly/
+    annual/monthly event (which may be an individual or a team, D-08), files
+    to unmatched_events exactly like the live scanner and counts as handled."""
     summary = event.get("summary", "")
     start = event.get("start", {})
     start_raw = start.get("dateTime") or start.get("date")
@@ -129,7 +133,7 @@ async def import_one_calendar_event(
     event_date = datetime.fromisoformat(start_raw)
 
     session_type = match_session_type(summary)
-    if session_type is None:
+    if session_type is None or session_type not in AUTO_MATCHED_SESSION_TYPES:
         get_supabase().table("unmatched_events").insert(
             {"tenant_id": tenant_id, "raw_event_summary": summary, "event_date": event_date.isoformat()}
         ).execute()
@@ -149,6 +153,7 @@ async def import_one_calendar_event(
             "event_date": event_date.isoformat(),
             "trigger_date": trigger_date.isoformat(),
             "status": "upcoming",
+            "external_event_id": event.get("id"),
         }
     ).execute()
     return True
@@ -308,6 +313,7 @@ async def insert_transcript_and_link(
     session = await _closest_session_for_client(client.id, created_time_iso)
     if session is not None:
         get_supabase().table("sessions").update({"transcript_id": transcript_row["id"]}).eq("id", session["id"]).execute()
+        get_supabase().table("transcripts").update({"session_id": session["id"]}).eq("id", transcript_row["id"]).execute()
 
 
 async def _closest_session_for_client(client_id: UUID, reference_iso: str | None) -> dict[str, Any] | None:
@@ -321,7 +327,12 @@ async def _closest_session_for_client(client_id: UUID, reference_iso: str | None
     if not rows:
         return None
     reference = datetime.fromisoformat(reference_iso)
-    return min(rows, key=lambda row: abs(datetime.fromisoformat(row["event_date"]) - reference))
+    closest = min(rows, key=lambda row: abs(datetime.fromisoformat(row["event_date"]) - reference))
+    # A transcript dated far from any session is left unlinked rather than
+    # attached to an unrelated session's history.
+    if abs(datetime.fromisoformat(closest["event_date"]) - reference) > _MAX_TRANSCRIPT_LINK_DISTANCE:
+        return None
+    return closest
 
 
 async def resolve_import_item(item_id: UUID, client_id: UUID) -> dict[str, Any]:

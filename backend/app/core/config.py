@@ -29,6 +29,17 @@ class Settings(BaseSettings):
 
     apps_script_webhook_shared_secret: str
     app_base_url: str = "http://localhost:8000"
+    # Comma-separated browser origins allowed to call the API (the deployed
+    # frontend). Local dev goes through Vite's /api proxy, so it needs none.
+    cors_allowed_origins: str = "http://localhost:5173"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]
+
+    @property
+    def supabase_jwt_issuer(self) -> str:
+        return f"{self.supabase_url.rstrip('/')}/auth/v1"
 
     @property
     def tenant_oauth_configs(self) -> dict[str, TenantOAuthConfig]:

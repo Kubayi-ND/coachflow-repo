@@ -16,6 +16,7 @@ from app.api.routes import (
     users,
     webhooks,
 )
+from app.core.config import get_settings
 from app.jobs.scheduler import start_scheduler, stop_scheduler
 
 
@@ -30,9 +31,9 @@ app = FastAPI(title="CoachFlow API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten to the deployed frontend origin before production
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=get_settings().cors_origins,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(users.router, prefix="/api/users", tags=["users"])

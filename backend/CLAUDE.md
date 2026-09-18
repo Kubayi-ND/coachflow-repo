@@ -79,19 +79,28 @@ backend/
 
 ## Auth and authorization
 
-Every route depends on a `get_current_user` dependency in `core/security.py` that verifies the Supabase JWT against Supabase's JWKS (no shared secret), then loads the user's role and assigned clients from `users`. A second dependency, `require_admin`, gates admin-only routes. For `general` users, every service function that touches a `client_id` must check it against that user's assigned clients — do this in the repository layer (`db/repository.py`), not just in the route handler, so a new route can't accidentally skip the check.
+Every route depends on a `get_current_user` dependency in `core/security.py` that verifies the Supabase JWT against Supabase's JWKS (no shared secret, audience `authenticated`, issuer `<SUPABASE_URL>/auth/v1`), then loads the user's role and assigned clients from `users`. A second dependency, `require_admin`, gates admin-only routes. For `general` users, every route that reads or writes one client's data must check it against that user's assigned clients, using the helpers in `core/security.py` (the repository can't import them — `security.py` imports the repository):
+
+- **One row:** `assert_client_access(user, client_id)`. For anything hanging off a session (drafts, scorecards, prep), use `assert_session_access(user, session_id)`, which loads the session and checks its client. For a Context Library entry group, use `assert_context_library_group_access`.
+- **Lists:** pass `accessible_client_ids(user)` (None = admin, unrestricted) into the `list_*` repository functions, which filter by it.
+- **Org-wide Context Library entries** reach every client's prompt, so only admins may create or version them (`assert_context_library_write_access`). Only admins may change a client's `email`, because approved drafts are sent to it.
+
+`tests/test_access_control.py` covers each route. Add a case there for any new route that exposes client data.
+
+**Database layer.** The browser holds the public anon key only for Supabase Auth; it never queries tables. The backend uses the service-role key, so the database denies `anon`/`authenticated` everything: RLS on every table (no policies except `reminder_rules`' own-row one), table and RPC grants revoked, and the `_current` views set to `security_invoker`. Any new table needs `enable row level security` too. An existing database is brought up to date with `app/db/patches/2026-09-18_privacy_lockdown.sql`.
 
 ## Data model (Supabase / Postgres — `db/schema.sql` is the source of truth)
 
-> Alignment in progress — see `docs/requirements-traceability.md`. Schema changes are moving to Supabase CLI migrations under `supabase/migrations/` (D-09, milestone M1); once that lands, the migrations are the source of truth instead of `schema.sql`. Planned additions: `companies`, `clients.kind` (`individual`/`team`) + `clients.company_id`, `context_shares` (D-03), `coach_briefings` (D-07), `action_items`, `sessions.external_event_id`, and `tenants.provider` (D-05).
+> Alignment in progress — see `docs/requirements-traceability.md`. Schema changes are moving to Supabase CLI migrations under `supabase/migrations/` (D-09, milestone M1); once that lands, the migrations are the source of truth instead of `schema.sql`. Planned additions: `companies`, `clients.kind` (`individual`/`team`) + `clients.company_id`, `context_shares` (D-03), `action_items`, and `tenants.provider` (D-05). Already added: `coach_briefings` (D-07; also caches prep so viewing a session doesn't re-call Gemini), `sessions.external_event_id` (the calendar scanner upserts on it), and `transcripts.session_id` (a transcript's owner).
 
 | Table | Key columns |
 |---|---|
 | `tenants` | `id`, `workspace_domain`, `encrypted_refresh_token`, `client_id` |
 | `clients` | `id`, `name`, `coach_user_id`, `tenant_id`, `drive_folder_id`, `session_types` (array) |
-| `sessions` | `id`, `client_id`, `type` (`one_on_one`/`quarterly_review`/`annual_review`/`monthly_council`), `tenant_id`, `event_date`, `trigger_date`, `transcript_id`, `status` |
+| `sessions` | `id`, `client_id`, `type` (`one_on_one`/`quarterly_review`/`annual_review`/`monthly_council`), `tenant_id`, `event_date`, `trigger_date`, `transcript_id`, `status`, `external_event_id` (unique) |
 | `unmatched_events` | `id`, `tenant_id`, `raw_event_summary`, `event_date`, `resolved_session_type` (nullable) |
-| `transcripts` | `id`, `file_ref`, `source` (`plaud`/`gemini_meet`), `normalized_text`, `parse_status` |
+| `transcripts` | `id`, `file_ref`, `source` (`plaud`/`gemini_meet`), `normalized_text`, `parse_status`, `session_id` (owner; null until linked) |
+| `coach_briefings` | `session_id` (pk), `keypoints` (jsonb) — internal-only, never in `ai_drafts` |
 | `context_library` | `id`, `entry_group_id`, `client_id` (nullable = org-wide), `title` (required heading), `body`, `version` — append-only, edits insert a new row under the same `entry_group_id`; `context_library_current` view exposes the latest per group |
 | `scorecards` | `id`, `session_id`, `structured_critique` (jsonb), `citations` (jsonb) |
 | `ai_drafts` | `id`, `session_id`, `draft_type`, `tenant_id`, `body`, `status` (`pending`/`sent`/`rejected`), `rejection_reason` |
@@ -107,7 +116,8 @@ Every route depends on a `get_current_user` dependency in `core/security.py` tha
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_JWKS_URL=                    # for JWT verification
-GEMINI_API_KEY=
+GEMINI_API_KEY=                       # must be a paid-tier key: free-tier prompts may be used by Google to improve products
+CORS_ALLOWED_ORIGINS=                 # comma-separated deployed frontend origin(s); default http://localhost:5173
 TOKEN_VAULT_ENCRYPTION_KEY=           # Fernet key, rotate via a documented runbook, not ad hoc
 GOOGLE_OAUTH_CLIENT_ID_TENANT_A=
 GOOGLE_OAUTH_CLIENT_SECRET_TENANT_A=

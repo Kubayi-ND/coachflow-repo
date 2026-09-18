@@ -3,13 +3,20 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.ai.gemini_client import generate
-from app.core.security import assert_client_access, get_current_user
+from app.core.security import (
+    accessible_client_ids,
+    assert_client_access,
+    assert_session_access,
+    get_current_user,
+)
 from app.db.repository import (
+    get_coach_briefing,
     get_current_prompt_template,
     get_supabase,
     list_sessions,
     list_unmatched_events,
     row_of,
+    save_coach_briefing,
 )
 from app.models.session import (
     Session,
@@ -19,7 +26,7 @@ from app.models.session import (
     UnmatchedEventResolve,
 )
 from app.models.user import User
-from app.services.context_builder import build_context
+from app.services.context_builder import build_context, load_prior_sessions, resolve_retrieval_scope
 
 router = APIRouter()
 
@@ -30,29 +37,40 @@ async def get_sessions(
     client_id: UUID | None = None,
     user: User = Depends(get_current_user),
 ) -> list[Session]:
-    return await list_sessions(tenant_id=tenant_id, client_id=client_id)
+    if client_id is not None:
+        assert_client_access(user, client_id)
+    return await list_sessions(accessible_client_ids(user), tenant_id=tenant_id, client_id=client_id)
 
 
 @router.get("/{session_id}/prep", response_model=SessionPrep)
-async def get_session_prep(session_id: UUID, user: User = Depends(get_current_user)) -> SessionPrep:
-    session_row = row_of(get_supabase().table("sessions").select("*").eq("id", str(session_id)).limit(1).execute())
-    if session_row is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+async def get_session_prep(
+    session_id: UUID, refresh: bool = False, user: User = Depends(get_current_user)
+) -> SessionPrep:
+    """Serves the stored coach briefing (coach_briefings, D-07). Gemini is only
+    called when none exists yet or the coach explicitly asks to refresh —
+    viewing a session must not re-send its client's data every page load."""
+    session = await assert_session_access(user, session_id)
+    scope = resolve_retrieval_scope(session.client_id)
 
-    session = Session(**session_row)
-    assert_client_access(user, session.client_id)
-    context = await build_context(session.client_id, session.type, exclude_session_id=session.id)
-    template = await get_current_prompt_template(session.type, "pre")
-    if template is None:
-        raise HTTPException(status_code=409, detail="No pre-session prompt configured")
+    cached = None if refresh else await get_coach_briefing(session.id)
+    if cached is not None:
+        keypoints = cached["keypoints"]
+        prior_sessions = await load_prior_sessions(scope, session.type, exclude_session_id=session.id)
+    else:
+        context = await build_context(session.client_id, session.type, exclude_session_id=session.id)
+        template = await get_current_prompt_template(session.type, "pre")
+        if template is None:
+            raise HTTPException(status_code=409, detail="No pre-session prompt configured")
+        result = await generate(template["body"].format(**context.as_prompt_vars()), structured=True)
+        keypoints = result.as_json()["keypoints"]
+        await save_coach_briefing(session.id, keypoints)
+        prior_sessions = context.prior_sessions
 
-    result = await generate(template["body"].format(**context.as_prompt_vars()), structured=True)
-    payload = result.as_json()
     history = [
         SessionHistoryItem(id=row["id"], event_date=row["event_date"], summary=row.get("summary"))
-        for row in context.prior_sessions
+        for row in prior_sessions
     ]
-    latest_review_session_id = context.prior_sessions[0]["id"] if context.prior_sessions else None
+    latest_review_session_id = prior_sessions[0]["id"] if prior_sessions else None
     scorecard_row = (
         row_of(
             get_supabase()
@@ -67,7 +85,7 @@ async def get_session_prep(session_id: UUID, user: User = Depends(get_current_us
     )
     return SessionPrep(
         session=session,
-        keypoints=payload["keypoints"],
+        keypoints=keypoints,
         scorecard=scorecard_row.get("structured_critique") if scorecard_row else None,
         citations=scorecard_row.get("citations", []) if scorecard_row else [],
         history=history,
