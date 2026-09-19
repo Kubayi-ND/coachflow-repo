@@ -98,6 +98,48 @@ export interface Scorecard {
   citations: Record<string, unknown>[];
 }
 
+/** Shape of scorecards.structured_critique written by the backend's
+ * post-session ICF critique (backend/app/models/scorecard.py IcfCritique).
+ * Keys stay snake_case: they're stored JSON, not API fields. Older rows may
+ * not match — check with isIcfCritique before rendering. */
+export type IcfRating = "not_observed" | "emerging" | "meets_pcc" | "exceeds_pcc";
+
+export interface IcfEvidence {
+  quote: string;
+  line: number | null;
+  speaker: string | null;
+  verified: boolean;
+}
+
+export interface IcfCompetencyAssessment {
+  id: number;
+  name: string;
+  rating: IcfRating;
+  summary: string;
+  evidence: IcfEvidence[];
+  pcc_markers: { id: string; observed: boolean; note: string }[];
+  strengths: string[];
+  growth_areas: string[];
+  citations: string[];
+}
+
+export interface IcfCritique {
+  rubric_version: string;
+  overall_alignment: { rating: IcfRating; summary: string };
+  competencies: IcfCompetencyAssessment[];
+  top_strengths: string[];
+  top_growth_areas: string[];
+  coach_action_items: string[];
+  client_action_items: string[];
+  talk_ratio_estimate: string | null;
+  transcript_unverified: boolean;
+}
+
+export interface ScorecardCitation {
+  context_id: string;
+  title: string;
+}
+
 export interface ContextLibraryEntry {
   id: string;
   entryGroupId: string;
@@ -114,6 +156,7 @@ export interface PromptTemplate {
   sessionType: import("./sessionTypes.generated").SessionTypeId;
   phase: "pre" | "post";
   title: string;
+  description: string | null;
   body: string;
   version: number;
   createdAt: string;

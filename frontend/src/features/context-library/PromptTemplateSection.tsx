@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/Button";
+import { CopyButton } from "@/components/ui/CopyButton";
 import { Input } from "@/components/ui/Input";
 import { Pill } from "@/components/ui/Pill";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -19,14 +20,18 @@ import type { PromptTemplate, SessionTypeId } from "@/types";
 
 const templateSchema = z.object({
   title: z.string().trim().min(1, "Heading is required."),
+  description: z.string().trim().optional(),
   body: z.string().trim().min(1, "Body is required."),
 });
 type TemplateFormValues = z.infer<typeof templateSchema>;
 
 const PHASES = ["pre", "post"] as const;
 
+const DESCRIPTION_HINT =
+  "What this prompt does: when it runs, what it uses, and what it produces (and whether the output reaches the client).";
+
 /** Context Library page editor for prompt templates — these rows are the live source
- * draft_generator.py / scorecard_generator.py read at generation time, so
+ * draft_generator.py / post_session.py read at generation time, so
  * posting a new version here actually changes what the AI sends to Gemini.
  * Append-only, same shape as the Context Library editor: edits post a new
  * version rather than overwrite in place. */
@@ -85,10 +90,18 @@ function PromptTemplateRow({
         <div>
           <p className="text-sm font-medium text-ink">{template.title}</p>
           <p className="mt-1 text-xs text-slate">
-            {SESSION_TYPES[template.sessionType].label} — {template.phase}
+            {SESSION_TYPES[template.sessionType].label} — {template.phase === "pre" ? "before the session" : "after the session"}
           </p>
+          {template.description ? (
+            <p className="mt-2 max-w-prose text-sm leading-6 text-ink">{template.description}</p>
+          ) : (
+            <p className="mt-2 text-sm italic text-slate">No description yet. Add one when you post the next version.</p>
+          )}
         </div>
-        <Pill>v{template.version}</Pill>
+        <div className="flex flex-shrink-0 items-center gap-1">
+          <CopyButton text={template.body} label="Copy prompt" />
+          <Pill>v{template.version}</Pill>
+        </div>
       </div>
       <div className="mt-2 flex gap-3 text-xs">
         <button className="text-teal hover:underline" onClick={() => setEditing((e) => !e)}>
@@ -103,6 +116,7 @@ function PromptTemplateRow({
         <PostVersionForm
           entryGroupId={template.entryGroupId}
           initialTitle={template.title}
+          initialDescription={template.description ?? ""}
           initialBody={template.body}
           onDone={() => setEditing(false)}
         />
@@ -124,11 +138,13 @@ function PromptTemplateRow({
 function PostVersionForm({
   entryGroupId,
   initialTitle,
+  initialDescription,
   initialBody,
   onDone,
 }: {
   entryGroupId: string;
   initialTitle: string;
+  initialDescription: string;
   initialBody: string;
   onDone: () => void;
 }) {
@@ -139,18 +155,22 @@ function PostVersionForm({
     formState: { errors },
   } = useForm<TemplateFormValues>({
     resolver: zodResolver(templateSchema),
-    defaultValues: { title: initialTitle, body: initialBody },
+    defaultValues: { title: initialTitle, description: initialDescription, body: initialBody },
   });
 
   const onSubmit = handleSubmit((values) => {
-    postVersion.mutate({ entryGroupId, title: values.title, body: values.body }, { onSuccess: onDone });
+    postVersion.mutate(
+      { entryGroupId, title: values.title, description: values.description ?? "", body: values.body },
+      { onSuccess: onDone }
+    );
   });
 
   return (
     <form onSubmit={onSubmit} className="mt-3 space-y-2 border-t border-border pt-3">
-      <Input error={!!errors.title} {...register("title")} />
+      <Input aria-label="Heading" error={!!errors.title} {...register("title")} />
       {errors.title && <p className="text-xs text-amber">{errors.title.message}</p>}
-      <Textarea rows={10} className="font-mono" error={!!errors.body} {...register("body")} />
+      <Textarea rows={3} aria-label="Description" placeholder={DESCRIPTION_HINT} {...register("description")} />
+      <Textarea rows={10} className="font-mono" aria-label="Prompt body" error={!!errors.body} {...register("body")} />
       {errors.body && <p className="text-xs text-amber">{errors.body.message}</p>}
       <Button type="submit" variant="secondary" isLoading={postVersion.isPending}>
         Post version
@@ -174,7 +194,7 @@ function CreateTemplateRow({ sessionType, phase }: { sessionType: SessionTypeId;
 
   const onSubmit = handleSubmit((values) => {
     createTemplate.mutate(
-      { sessionType, phase, title: values.title, body: values.body },
+      { sessionType, phase, title: values.title, description: values.description, body: values.body },
       { onSuccess: () => { reset(); setCreating(false); } }
     );
   });
@@ -193,6 +213,7 @@ function CreateTemplateRow({ sessionType, phase }: { sessionType: SessionTypeId;
         <form onSubmit={onSubmit} className="mt-3 space-y-2">
           <Input placeholder="Heading" error={!!errors.title} {...register("title")} />
           {errors.title && <p className="text-xs text-amber">{errors.title.message}</p>}
+          <Textarea rows={3} aria-label="Description" placeholder={DESCRIPTION_HINT} {...register("description")} />
           <Textarea
             rows={10}
             className="font-mono"

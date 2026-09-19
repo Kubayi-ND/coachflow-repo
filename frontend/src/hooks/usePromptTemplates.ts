@@ -31,16 +31,18 @@ export function useCreatePromptTemplate() {
       sessionType,
       phase,
       title,
+      description,
       body,
     }: {
       sessionType: SessionTypeId;
       phase: "pre" | "post";
       title: string;
+      description?: string;
       body: string;
     }) =>
       apiFetch<PromptTemplate>("/api/admin/prompt-templates", {
         method: "POST",
-        body: JSON.stringify({ session_type: sessionType, phase, title, body }),
+        body: JSON.stringify({ session_type: sessionType, phase, title, description: description || null, body }),
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: TEMPLATES_KEY }),
   });
@@ -50,10 +52,20 @@ export function usePostPromptTemplateVersion() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ entryGroupId, title, body }: { entryGroupId: string; title: string; body: string }) =>
+    mutationFn: ({
+      entryGroupId,
+      title,
+      description,
+      body,
+    }: {
+      entryGroupId: string;
+      title: string;
+      description?: string;
+      body: string;
+    }) =>
       apiFetch<PromptTemplate>(`/api/admin/prompt-templates/${entryGroupId}/versions`, {
         method: "POST",
-        body: JSON.stringify({ title, body }),
+        body: JSON.stringify({ title, description: description ?? null, body }),
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: TEMPLATES_KEY }),
   });

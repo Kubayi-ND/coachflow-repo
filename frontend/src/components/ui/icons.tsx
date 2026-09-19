@@ -165,3 +165,12 @@ export function ExternalLinkIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function CopyIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="8.5" y="8.5" width="12" height="12" rx="2" />
+      <path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3" />
+    </svg>
+  );
+}

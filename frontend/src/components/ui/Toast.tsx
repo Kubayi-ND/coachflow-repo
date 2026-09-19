@@ -1,9 +1,11 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
 
+import { XIcon } from "./icons";
+
 interface ToastMessage {
   id: number;
   text: string;
-  tone: "success" | "error";
+  tone: "success" | "error" | "info";
 }
 
 interface ToastContextValue {
@@ -11,6 +13,12 @@ interface ToastContextValue {
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
+
+const TONE_CLASSES: Record<ToastMessage["tone"], string> = {
+  success: "bg-teal text-white border-teal/60",
+  error: "bg-red-600 text-white border-red-700 dark:bg-red-700 dark:border-red-800",
+  info: "bg-surface text-ink border-border",
+};
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<ToastMessage[]>([]);
@@ -21,6 +29,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setMessages((prev) => prev.filter((m) => m.id !== id)), 4000);
   }, []);
 
+  const dismiss = (id: number) => setMessages((prev) => prev.filter((m) => m.id !== id));
+
   return (
     <ToastContext.Provider value={{ show }}>
       {children}
@@ -28,13 +38,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {messages.map((m) => (
           <div
             key={m.id}
-            className={`rounded-lg border px-4 py-2.5 text-sm font-medium shadow-panel ${
-              m.tone === "success"
-                ? "bg-teal text-white border-teal/60"
-                : "bg-red-600 text-white border-red-700 dark:bg-red-700 dark:border-red-800"
-            }`}
+            className={`flex items-center gap-3 rounded-lg border py-2.5 pl-4 pr-2 text-sm font-medium shadow-panel ${TONE_CLASSES[m.tone]}`}
           >
-            {m.text}
+            <span>{m.text}</span>
+            <button
+              type="button"
+              aria-label="Dismiss"
+              className="rounded p-0.5 opacity-80 transition-opacity hover:opacity-100"
+              onClick={() => dismiss(m.id)}
+            >
+              <XIcon className="h-4 w-4" />
+            </button>
           </div>
         ))}
       </div>
