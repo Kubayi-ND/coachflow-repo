@@ -110,7 +110,7 @@ context behind each):
 ### 4.2 Supabase project
 
 - **Reusing the existing project:** nothing to do beyond copying the same values into the new `.env` files. Consider transferring project ownership to the work org's Supabase organization if billing should move too.
-- **Privacy lockdown:** the database denies the `anon`/`authenticated` roles everything (RLS on every table, grants revoked — see `backend/CLAUDE.md` "Database layer"). A new project gets this from `schema.sql`. An existing project provisioned before 2026-09-18 must also run `backend/app/db/patches/2026-09-18_privacy_lockdown.sql` (idempotent; its header has a query to check current grants first).
+- **Privacy lockdown:** the database denies the `anon`/`authenticated` roles everything (RLS on every table, grants revoked — see `backend/CLAUDE.md` "Database layer"). A new project gets this from `schema.sql`. An existing project provisioned before 2026-09-18 must also run `backend/app/db/patches/2026-09-18_privacy_lockdown.sql` (idempotent; its header has a query to check current grants first), then `backend/app/db/patches/2026-09-19_icf_critique_and_prompt_descriptions.sql` (prompt descriptions and the ICF post-session templates, posted as new versions).
 - **New project:** run `backend/app/db/schema.sql` against it, then re-create the `users` table's role/`assigned_client_ids` rows, and re-seed `context_library`/`prompt_templates` (these are append-only tables — see `backend/CLAUDE.md`'s data model). Note the existing memory that the live Context Library table has been observed empty in this project before — verify what's actually populated rather than assuming the old project was fully seeded.
 
 ### 4.3 Google OAuth clients per tenant

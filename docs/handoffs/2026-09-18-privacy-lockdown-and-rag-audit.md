@@ -1,5 +1,7 @@
 # Handoff — privacy lockdown and RAG audit (2026-09-18)
 
+> **Updated 2026-09-19:** the post-session ICF critique, prompt descriptions and dashboard quality-of-life changes are in. See [§5](#5-update-2026-09-19-icf-critique-prompt-descriptions-quality-of-life).
+
 Branch: `luyanda/privacy-lockdown` (includes the earlier docs-alignment commits from `luyanda/ui-redesign`, merged with `origin/main` as of PR #5).
 
 Read this first if you're continuing this work. For the "why" behind the silo rules, see `docs/decisions.md` D-02, D-03, D-07 and D-08. Two notes on scope, from the product owner:
@@ -77,19 +79,19 @@ Behaviour changes:
 
 Gaps, most important first:
 
-1. **The post-session path never runs.** `scorecard_generator.generate_scorecard_and_summary` has no caller, and `/webhooks/drive` stores transcripts without linking them to a session.
+1. ~~**The post-session path never runs.**~~ **Fixed 2026-09-19** (§5): `post_session.run_post_session_analysis` runs when a transcript is linked or on demand.
 2. **Prior sessions are always empty.** Nothing sets `sessions.status='sent'`, and approving a draft doesn't update its session.
 3. **Org-wide entries are stuffed in, not retrieved.** `build_context` loads every `client_id IS NULL` row whole.
 4. **No chunking.** Each entry, even a whole PDF, is one vector.
 5. **The HNSW index is unused.** The RPC reads the `DISTINCT ON` view.
 6. **No relevance cutoff.** There's no similarity threshold, scores aren't returned, and there's no hybrid/keyword search or reranking.
 7. **Weak queries.** The pre-session query is a fixed template (name + type); the post-session query is the transcript's head and tail at 4,000 characters each.
-8. **No grounding checks.** There's no token budget, no `response_schema`, and citations are neither requested in pre-session output nor validated after generation.
-9. **Admin templates can crash generation.** `str.format` on an admin-edited template raises on a stray `{`.
+8. **No grounding checks.** Post-session output is now validated and its citations and quotes checked (§5). Still open: pre-session prep has no citations, and there's no token budget.
+9. ~~**Admin templates can crash generation.**~~ **Fixed 2026-09-19:** every prompt is filled with `ai/prompt_render.render_prompt`.
 10. **No retrieval evaluation.** There's no golden set, recall@k or citation-faithfulness check.
 
 ### Roadmap, in order
-1. **Make the loop run:** mark sessions `held` after the event or when a transcript links; link transcripts to sessions in the webhook and call the scorecard generator; build history per phase (D-06).
+1. **Make the loop run:** mark sessions `held` after the event or when a transcript links, and build history per phase (D-06). (Linking transcripts and running the post-session analysis is done, §5.)
 2. **Chunking:** a `context_library_chunks` table (heading/page chunks with overlap, `embedding_model` column, batched embedding).
 3. **Rank org-wide reference rows too:** keep a small pinned core (ICF list, GROW summary). The RPC returns `similarity` and applies a threshold.
 4. **Hybrid search:** a tsvector GIN index plus reciprocal-rank fusion.
@@ -107,9 +109,98 @@ Gaps, most important first:
 - **Review the org-wide Context Library rows** (they reach every client's prompt). Nothing was reassigned automatically. `scripts/migrate_candidates_pack.py` imported `iEQ9 Joss du Trevou CC.pdf` and `Joss du Trevou Coach Profile .pdf` as org-wide. They look like the coach's own documents, but they're personal and sent with every client. Drive and local backfills of a "context library" folder also land org-wide; list them with `select title, created_at from context_library_current where client_id is null;`.
 - **Unmatched calendar events** have no client, so every coach can see their titles. This is resolved by the engagement model.
 - **Next milestone (1g): the engagement model.** `companies`, `clients.kind` (individual/team) + `company_id`, and `context_shares` (acknowledged, version-pinned, revocable, and individual → individual refused server-side). Plug these into `resolve_retrieval_scope`.
+- **Apply the 2026-09-19 patch too:** `backend/app/db/patches/2026-09-19_icf_critique_and_prompt_descriptions.sql`, after the lockdown patch. It adds prompt descriptions and posts the ICF post-session templates as new versions.
+- **Re-import the ICF Context Library file** if it was imported before 2026-09-19. The old importer read the Mac Roman `.txt` as UTF-8, so its curly quotes and dashes are garbled (`scripts/migrate_candidates_pack.py` now decodes it correctly). Post a new version of that entry, or re-run the import for it.
 - **D-09 migrations aren't set up.** Until they are, `schema.sql` plus `app/db/patches/*.sql` is the convention. When Supabase CLI migrations land, the baseline must include this lockdown.
 
 ## 4. Related artifacts
 - Design canvas documenting schema and siloing, main vs this work (private to the author, shareable from its menu): https://claude.ai/artifact/QYHvrFAFx8EurStrGtP3Ar. It predates the lockdown code; §1 above is the current state.
 - `docs/requirements-traceability.md`: the rows updated for this work.
 - `MIGRATION.md`: env vars and post-migration checks now include the lockdown.
+
+## 5. Update 2026-09-19: ICF critique, prompt descriptions, quality of life
+
+### Post-session ICF critique (what the coach asked for)
+After each session the coach gets a critique of **their own coaching** against the ICF Core Competencies and PCC markers, so they can see where they meet the standard and where to improve. It is coach-only: never sent, never in Approvals.
+
+- **Rubric:** `backend/app/ai/icf_rubric.py`.
+  - The 8 core competencies in their 4 domains, and the 37 PCC markers, with short paraphrased labels. The full ICF wording stays in the Context Library entry "ICF CCs with PCC Markers", which the prompt also receives.
+  - Ratings are `not_observed` / `emerging` / `meets_pcc` / `exceeds_pcc`.
+  - Competencies 1 and 2 have no markers, so they're judged from the session as a whole.
+  - `RUBRIC_VERSION` is stored on each critique; bump it if the rubric changes.
+- **What the coach sees** (frontend `features/scorecards/IcfCritique.tsx`):
+  - an overall alignment rating and summary, and the talk-time estimate;
+  - top strengths, where to improve, what to practise next session, and the client's commitments;
+  - one card per competency: its rating, word-for-word transcript quotes with line numbers, PCC markers observed or missed, strengths and growth areas, and which Context Library entries it relied on.
+- **Where it shows:**
+  - the Calendar session panel's new **ICF critique** tab (with Analyse session / Analyse again);
+  - the **Last review** tab, which now shows the previous session's critique as cards instead of raw JSON;
+  - `/sessions/:id/scorecard`, linked from the tab.
+
+  Older unstructured scorecards fall back to the raw JSON view.
+- **How it's generated:** `backend/app/services/post_session.py`, which replaces the dead `scorecard_generator.py`.
+  - One Gemini call produces the critique and the client summary.
+  - Output is validated with `models/scorecard.PostSessionOutput`. It must contain all 8 competencies; if it doesn't, nothing is stored and the coach sees "try again".
+  - **Grounding checks before storing:**
+    - citation ids that weren't in the prompt's Context Library rows are dropped;
+    - PCC markers filed under the wrong competency are dropped;
+    - evidence quotes not found in the transcript are kept but marked "not found in transcript, check before relying on it".
+  - A transcript that only partly parsed is flagged in the prompt and in the UI.
+  - The client summary becomes a **pending Approvals draft**, created once per session. The existing human-approval rule applies.
+- **Triggers** (user's choice: button + automatic):
+  - **Manual:** `POST /api/sessions/{id}/analysis` (`?refresh=true` regenerates; 409 when there's no usable transcript).
+  - **Automatic:** after a transcript is linked.
+    - Drive and local backfills and the pack importer link by nearest session for the known client, within 2 days (`insert_transcript_and_link`).
+    - The Drive webhook links only when **exactly one** session in the tenant ended in the last 2 days without a transcript, then analyses in the background. Anything ambiguous stays unlinked; we never guess which client a transcript belongs to.
+- **Transcript parsing fixed** (`transcript_normalizer.py`). The real sample files previously failed:
+  - Gemini "Meeting Notes" Markdown (`## Transcript` + `**Name:** text`) now parses;
+  - Plaud exports skip the header, keep `[hh:mm:ss]` timestamps, ignore `[END OF RECORDING]`, and mark damaged files `partial`.
+- **Prompts:** the 4 post-session templates were rewritten around `{icf_rubric}` and the numbered transcript, with a per-session-type focus. For example, 1-on-1s look at the GROW flow and agreement (3.1–3.4), and team sessions check that every voice was drawn in. Every prompt is filled with the safe `render_prompt`.
+- **Changed from the plan:**
+  - Gemini's `response_schema` isn't used. The SDK version handles nested schemas poorly; the prompt states the exact JSON shape and the backend validates strictly instead.
+  - No Google Tasks push yet.
+  - Scorecards aren't saved to Drive (traceability rows still Missing).
+
+### Prompt library descriptions
+- `prompt_templates.description` says when the prompt runs, what it uses, what it produces, and whether the output reaches the client. All 8 seeded prompts have one.
+- The library shows the description under each title, with a **Copy prompt** button. The create and new-version forms have a description field; a new version keeps the previous description unless it's changed.
+
+### Quality-of-life features taken from the R&D prototype
+The prototype (`Desktop\CoahFlow Research and Development\CoachFlow`) is a mock-data AI Studio click-through, not a fork. I took only small frontend features that fit the rules:
+- **Clients:** search by name or email, session-type filter chips, and "No clients match · Clear filters".
+- **Calendar:**
+  - sessions grouped by day ("Today", "Tomorrow", "Wednesday 23 September" plus "in 3 days"), each with its time;
+  - the Need attention tile jumps to the unmatched-events list, whose explanation now matches the new matching rules.
+- **Session panel:**
+  - "Confidential · uses {client}'s records only";
+  - copy buttons on prep points (and Copy all);
+  - a count on the History tab;
+  - clearer empty states.
+- **Toasts** can be dismissed and have an `info` tone.
+
+**Deliberately not taken:**
+- **The commitments tracker:** it needs a backend model, and the prototype lets the AI overwrite human-confirmed statuses.
+- **The "second brain synced" indicator:** it's fake in the prototype.
+- **Caching client files in localStorage:** it would leak confidential notes.
+- **Free-form create/delete prompts and "reset to default":** they conflict with the fixed, append-only slots.
+- **The 5-part prep format:** a bigger backend change; a good next step.
+
+### Tests
+- Backend: 98 pass (ruff, mypy clean). New tests cover:
+  - parser tests on the real formats;
+  - `segments_to_text`;
+  - `test_post_session.py`: grounding, draft once, invalid output stores nothing, no transcript, cached reuse, background trigger never raises;
+  - analysis route access (403) and 409;
+  - the unambiguous-session webhook link;
+  - description carry-over.
+- Frontend: 11 pass, including `IcfCritique.test.tsx`.
+
+### Next steps
+- Run the 2026-09-19 patch, and re-import the ICF file (see §3).
+- **Try it end to end on sandbox data:** link a sample transcript to a session, open the ICF critique tab, and check the quotes and ratings read sensibly. Prompt wording may need tuning after real runs, done by posting a new template version in the prompt library.
+- Later:
+  - a session-end trigger for sessions whose transcript never arrives;
+  - trends across sessions (ratings per competency over time);
+  - the 5-part prep format;
+  - Google Tasks for coach action items.
+

@@ -28,13 +28,13 @@ _Last reviewed: 2026-09-18 (privacy lockdown — see [`handoffs/2026-09-18-priva
 
 | Requirement | Status | Notes | Milestone |
 |---|---|---|---|
-| Triggered by session end + transcript availability | Missing | Transcripts aren't linked to sessions; no trigger | M7 |
-| Ingest Plaud transcripts | Partial | Plain text only; no timestamps; speakers mapped by order | M7 |
-| Ingest Gemini transcripts | Partial | Assumes a JSON shape; Gemini notes as Google Docs aren't handled | M7 |
+| Triggered by session end + transcript availability | Partial | Runs when a transcript is linked (Drive webhook links only an unambiguous recent session; backfills link by nearest session) and on demand from the dashboard. No session-end trigger yet | M7 |
+| Ingest Plaud transcripts | Done | Header skipped, `[hh:mm:ss]` timestamps kept, damaged lines mark the parse `partial`; speakers still mapped by order | — |
+| Ingest Gemini transcripts | Partial | JSON and "Meeting Notes" Markdown exports parse; Gemini notes as Google Docs aren't handled | M7 |
 | Ingest MS Teams transcripts | Missing | No `.vtt`/`.srt` parser; Graph deferred (D-05) | M7, M9 |
-| Critique against the Context Library (ICF + GROW) | Partial | Generator exists but is never called; library empty; whole-document retrieval | M5, M7 |
+| Critique against the Context Library (ICF + GROW) | Done | ICF rubric (8 competencies, 37 PCC markers) with transcript evidence; citations validated against the retrieved rows. Retrieval is still whole-document (M5) | — |
 | Internal scorecard saved to the coach's files | Missing | Stored in the database only, not Drive | M7 |
-| Client summary email with takeaways + action items | Missing | Draft function exists, never called | M7 |
+| Client summary email with takeaways + action items | Done | Created as a pending Approvals draft by the post-session analysis | — |
 | Coach action items posted to Google Tasks | Missing | `create_task` exists, never called | M7 |
 
 ## §3 C — Quarterly Strategic Review
@@ -81,7 +81,7 @@ _Last reviewed: 2026-09-18 (privacy lockdown — see [`handoffs/2026-09-18-priva
 | OAuth tokens handled securely, no cross-tenant leakage | Partial | Encrypted per-tenant vault and single send path exist; no connect flow. CORS now limited to `CORS_ALLOWED_ORIGINS` | M4, M9 |
 | Ambiguous QSR/ASR naming handled | Partial | Unmatched queue exists, but assigning a type doesn't create a session | M4 |
 | Transcript variability & speaker labels | Partial | See §3 B rows | M7 |
-| Objective, structured, grounded AI critique | Partial | No fixed rubric; citations not validated; scorecard shown as raw JSON | M5, M7 |
+| Objective, structured, grounded AI critique | Done | Fixed ICF rubric, validated output, citation and quote checks, readable critique view | — |
 | Confidential recordings & transcripts stay inside Grow's environment | Partial | Done in code: RLS on every table with anon/authenticated grants revoked, and every route that exposes client data scoped to assigned clients. Pending: the lockdown patch isn't applied to the live project yet; unmatched calendar events are visible to every coach; prompts go to Gemini unredacted (paid-tier key required) | M1, M3 |
 | ASM-001 standard titles | Partial | 1-on-1 only; see D-08 | M4 |
 | ASM-002 transcripts machine-readable via API/webhook/drop | Partial | Drive Inbox webhook only | M7 |
@@ -100,7 +100,7 @@ _Last reviewed: 2026-09-18 (privacy lockdown — see [`handoffs/2026-09-18-priva
 | Dev: integration pipeline proof of concept (calendar trigger → historical data) | Partial | Chain exists but is broken at client linking and history | M2–M6 |
 | Dev: multi-tenant auth architecture incl. Microsoft Graph | Missing | — | M9 |
 | Human-in-the-loop review & edit of drafts | Partial | Approve / edit / reject works; briefing wrongly treated as a client draft | M2 |
-| Scannable, actionable output | Partial | Scorecard shown as raw JSON | M6, M7 |
+| Scannable, actionable output | Partial | ICF critique rendered as cards with strengths, growth areas and action items; prep is still flat bullets | M6 |
 | Observability: performance, token cost, processing errors | Missing | Errors only in logs; tokens logged only by the unused scorecard step | M8 |
 
 ## Agreed after the spec
