@@ -84,7 +84,9 @@ async def create_prompt_template_route(
     body: PromptTemplateCreate, user: User = Depends(require_coach_or_admin)
 ) -> PromptTemplate:
     try:
-        row = await create_prompt_template(body.session_type, body.phase, body.title, body.body)
+        row = await create_prompt_template(
+            body.session_type, body.phase, body.title, body.body, description=body.description
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     return PromptTemplate(**row)
@@ -95,7 +97,9 @@ async def post_prompt_template_version_route(
     entry_group_id: UUID, body: PromptTemplateVersion, user: User = Depends(require_coach_or_admin)
 ) -> PromptTemplate:
     try:
-        row = await post_prompt_template_version(entry_group_id, body.title, body.body)
+        row = await post_prompt_template_version(
+            entry_group_id, body.title, body.body, description=body.description
+        )
     except LookupError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     return PromptTemplate(**row)

@@ -38,3 +38,29 @@ async def test_post_version_with_embedding_passes_embedding_through():
 
     fake_post.assert_called_once_with(entry_group_id, "t2", "b2", embedding=fake_embedding)
     assert row["id"] == "row-2"
+
+
+@pytest.mark.asyncio
+async def test_prompt_template_version_carries_description_over_when_omitted():
+    from unittest.mock import MagicMock
+
+    from app.db import repository
+
+    current = {
+        "id": "t1", "entry_group_id": "g1", "session_type": "one_on_one", "phase": "post",
+        "title": "Old", "description": "What this prompt does", "body": "old", "version": 2,
+    }
+    supabase = MagicMock()
+    supabase.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+        current
+    ]
+    supabase.table.return_value.insert.return_value.execute.return_value.data = [{"id": "t2"}]
+
+    with patch.object(repository, "get_supabase", return_value=supabase):
+        await repository.post_prompt_template_version(uuid4(), "New", "new body")
+        inserted = supabase.table.return_value.insert.call_args.args[0]
+        assert inserted["description"] == "What this prompt does"
+        assert inserted["version"] == 3
+
+        await repository.post_prompt_template_version(uuid4(), "New", "new body", description="Updated")
+        assert supabase.table.return_value.insert.call_args.args[0]["description"] == "Updated"

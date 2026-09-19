@@ -6,6 +6,7 @@ directly (backend/CLAUDE.md phase 5) — only POST /api/drafts/{id}/approve does
 from uuid import UUID
 
 from app.ai.gemini_client import generate
+from app.ai.prompt_render import render_prompt
 from app.db.repository import get_current_prompt_template, get_supabase, row_of
 from app.models.draft import DraftType
 from app.services.context_builder import build_context
@@ -17,7 +18,7 @@ async def generate_prep_email_draft(session_id: UUID, client_id: UUID, tenant_id
     template = await get_current_prompt_template(session_type, "pre")
     if template is None:
         raise RuntimeError(f"No current prompt template for {session_type.value}/pre")
-    prompt = template["body"].format(**context.as_prompt_vars())
+    prompt = render_prompt(template["body"], context.as_prompt_vars())
 
     result = await generate(prompt, structured=True)
     payload = result.as_json()
@@ -32,7 +33,7 @@ def _assemble_prep_email(payload: dict) -> str:
 
 async def generate_summary_draft(session_id: UUID, tenant_id: str, client_summary: str) -> UUID:
     """Client-facing session summary — takes the already-generated
-    client_summary from scorecard_generator so the same Gemini call isn't
+    client_summary from services/post_session.py so the same Gemini call isn't
     duplicated for post-session artifacts."""
     return _write_pending_draft(session_id, tenant_id, DraftType.SUMMARY, client_summary)
 

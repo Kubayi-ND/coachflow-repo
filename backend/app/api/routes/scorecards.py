@@ -14,7 +14,13 @@ router = APIRouter()
 async def get_scorecard(session_id: UUID, user: User = Depends(get_current_user)) -> Scorecard:
     await assert_session_access(user, session_id)
     row = row_of(
-        get_supabase().table("scorecards").select("*").eq("session_id", str(session_id)).limit(1).execute()
+        get_supabase()
+        .table("scorecards")
+        .select("*")
+        .eq("session_id", str(session_id))
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
     )
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Scorecard not found")

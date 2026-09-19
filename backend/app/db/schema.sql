@@ -69,6 +69,10 @@
 -- no anon/authenticated grants, sessions.external_event_id,
 -- transcripts.session_id, coach_briefings)? Run the idempotent script:
 --   psql "$DATABASE_URL" -f app/db/patches/2026-09-18_privacy_lockdown.sql
+--
+-- Already provisioned before prompt_templates.description and the ICF
+-- post-session templates existed? Run (idempotent, after the lockdown patch):
+--   psql "$DATABASE_URL" -f app/db/patches/2026-09-19_icf_critique_and_prompt_descriptions.sql
 
 create extension if not exists "pgcrypto";
 create extension if not exists "vector";
@@ -221,6 +225,7 @@ create table prompt_templates (
     session_type session_type not null,
     phase text not null check (phase in ('pre', 'post')),
     title text not null,                        -- clear heading, e.g. "1-on-1 — Pre-Session Prep"
+    description text,                            -- what the prompt does, when it runs, what it produces
     body text not null,
     version int not null default 1,
     created_at timestamptz not null default now()
@@ -378,8 +383,8 @@ create view prompt_templates_current with (security_invoker = true) as
 -- (now deleted — this table is the sole source draft_generator.py and
 -- scorecard_generator.py read from). Dollar-quoted so the apostrophe in
 -- "coach's performance" and the {curly braces} below don't need escaping.
-insert into prompt_templates (session_type, phase, title, body, version) values
-('one_on_one', 'pre', '1-on-1 Executive Coaching — Pre-Session Prep', $tpl$You are preparing a coach for an upcoming 1-on-1 executive coaching session.
+insert into prompt_templates (session_type, phase, title, description, body, version) values
+('one_on_one', 'pre', '1-on-1 Executive Coaching — Pre-Session Prep', 'Runs 3 working days before each 1-on-1 session (adjustable in reminder rules), and when the coach opens the session''s prep. Uses the client profile, the most relevant Context Library entries and past 1-on-1 sessions with this client. Produces the coach-only prep briefing shown in the dashboard and a prep email draft that waits in Approvals. Nothing is sent without the coach''s approval.', $tpl$You are preparing a coach for an upcoming 1-on-1 executive coaching session.
 
 ## Client profile
 {client_profile}
@@ -401,30 +406,68 @@ Produce a JSON object with these keys:
 
 Respond with JSON only, matching this shape exactly.
 $tpl$, 1),
-('one_on_one', 'post', '1-on-1 Executive Coaching — Post-Session Scorecard & Summary', $tpl$You are producing the post-session artifacts for a 1-on-1 executive coaching
-session that just occurred.
+('one_on_one', 'post', '1-on-1 Executive Coaching — Post-Session ICF Critique & Summary', 'Runs when a 1-on-1 session transcript is linked to its session, or when the coach clicks Analyse session. Uses the numbered transcript, the ICF rubric (8 core competencies, 37 PCC markers), the Context Library and the client profile. Produces a coach-only ICF critique (a rating per competency with transcript evidence, strengths and where to improve) and a client summary draft that waits in Approvals.', $tpl$You are an experienced ICF assessor (MCC level) reviewing a 1-on-1 session that has just taken place.
+Give the coach an honest, specific, evidence-based critique of their coaching against the ICF Core
+Competencies and PCC markers, so they can see where they meet the standard and where to improve.
+Only the coach sees this critique.
 
-## Transcript (normalized)
-{transcript}
+## ICF rubric
+{icf_rubric}
 
-## Context Library (ICF competencies + GROW model, relevant slice)
+## Context Library (ICF material, GROW model, this client's notes)
+Each entry is headed with its id. When a judgement relies on an entry, put its id in "citations".
 {context_library}
 
 ## Client profile
 {client_profile}
 
-Produce a JSON object with two top-level keys:
-- "scorecard": a structured ICF/GROW critique of the coach's performance in
-  this session, with a "citations" array linking each claim back to the
-  specific Context Library section id it was grounded in. This is internal
-  only — do not soften findings for a client audience.
-- "client_summary": a plain-prose session summary suitable for the
-  client-facing draft, focused on their stated goals and next steps only —
-  no internal critique content.
+## Transcript
+Lines are numbered L1, L2, ... Quote word for word and give the line number.
+{transcript}
 
-Respond with JSON only, matching this shape exactly.
+## Focus for this session
+A 1-on-1 executive coaching session with an individual. Pay particular attention to: the session agreement at the start (3.1–3.4); the GROW flow (Goal, Reality, Options, Way forward); presence and the quality of questions (competencies 5 and 7); and a close that turns insight into action with accountability the client designs (8.5–8.9).
+
+## How to assess
+- Assess all 8 competencies, in order. For each give: a rating, a one- or two-sentence summary,
+  1-3 evidence quotes copied exactly from the transcript with their line number and speaker, the PCC
+  markers of that competency you observed or clearly missed, strengths, and growth areas.
+- Rate only what the transcript shows. With no evidence, use "not_observed" and say so; don't infer.
+- Make growth areas concrete: point to the moment (line) and suggest the question or move that would
+  have met the marker.
+- Estimate who did most of the talking (PCC marker 7.8).
+- Coach action items: 2-4 things the coach can practise next session. Client action items: what the
+  client committed to, in their words.
+
+## Output
+Respond with JSON only, in exactly this shape. "competencies" must hold 8 entries, ids 1-8, and each
+entry's "pcc_markers" may only use that competency's marker ids.
+{{
+  "scorecard": {{
+    "rubric_version": "icf-pcc-v1",
+    "overall_alignment": {{"rating": "meets_pcc", "summary": "..."}},
+    "competencies": [
+      {{
+        "id": 1, "name": "Demonstrates Ethical Practice", "rating": "meets_pcc", "summary": "...",
+        "evidence": [{{"quote": "...", "line": 12, "speaker": "Coach"}}],
+        "pcc_markers": [],
+        "strengths": ["..."], "growth_areas": ["..."], "citations": ["<context library id>"]
+      }}
+    ],
+    "top_strengths": ["..."],
+    "top_growth_areas": ["..."],
+    "coach_action_items": ["..."],
+    "client_action_items": ["..."],
+    "talk_ratio_estimate": "client about 70%, coach about 30%"
+  }},
+  "client_summary": "..."
+}}
+
+"client_summary" is written to the client: a warm, plain-prose summary of what they explored, the
+insights they named and the actions they committed to. It must not mention ratings, the ICF rubric
+or any assessment of the coach.
 $tpl$, 1),
-('quarterly_review', 'pre', 'Quarterly Strategic Review — Pre-Session Prep', $tpl$You are preparing a coach for an upcoming Quarterly Strategic Review.
+('quarterly_review', 'pre', 'Quarterly Strategic Review — Pre-Session Prep', 'Runs 5 working days before each Quarterly Strategic Review (adjustable in reminder rules), and when the coach opens the session''s prep. Uses the client profile, the most relevant Context Library entries and past Quarterly Strategic Reviews with this client. Produces the coach-only prep briefing shown in the dashboard and a prep email draft that waits in Approvals. Nothing is sent without the coach''s approval.', $tpl$You are preparing a coach for an upcoming Quarterly Strategic Review.
 
 ## Client profile
 {client_profile}
@@ -445,21 +488,68 @@ Produce a JSON object with these keys:
 
 Respond with JSON only, matching this shape exactly.
 $tpl$, 1),
-('quarterly_review', 'post', 'Quarterly Strategic Review — Post-Session Scorecard & Summary', $tpl$You are producing the post-session artifacts for a Quarterly Strategic Review
-that just occurred.
+('quarterly_review', 'post', 'Quarterly Strategic Review — Post-Session ICF Critique & Summary', 'Runs when a Quarterly Strategic Review transcript is linked to its session, or when the coach clicks Analyse session. Uses the numbered transcript, the ICF rubric (8 core competencies, 37 PCC markers), the Context Library and the client profile. Produces a coach-only ICF critique (a rating per competency with transcript evidence, strengths and where to improve) and a client summary draft that waits in Approvals.', $tpl$You are an experienced ICF assessor (MCC level) reviewing a Quarterly Strategic Review that has just taken place.
+Give the coach an honest, specific, evidence-based critique of their coaching against the ICF Core
+Competencies and PCC markers, so they can see where they meet the standard and where to improve.
+Only the coach sees this critique.
 
-## Transcript (normalized)
-{transcript}
+## ICF rubric
+{icf_rubric}
 
-## Context Library (ICF competencies + GROW model, relevant slice)
+## Context Library (ICF material, GROW model, this client's notes)
+Each entry is headed with its id. When a judgement relies on an entry, put its id in "citations".
 {context_library}
 
 ## Client profile
 {client_profile}
 
-Respond with JSON only: {{"scorecard": {{...with "citations"...}}, "client_summary": "..."}}.
+## Transcript
+Lines are numbered L1, L2, ... Quote word for word and give the line number.
+{transcript}
+
+## Focus for this session
+A Quarterly Strategic Review, with an individual or a company team. Pay particular attention to: agreeing the quarter's strategic goals and how success is measured (3.1–3.4); evoking awareness of patterns across the quarter (6.5, 7.3, 7.4); and turning the review into next-quarter commitments (8.4–8.7). If this is a team session, assess whether the coach drew in every voice.
+
+## How to assess
+- Assess all 8 competencies, in order. For each give: a rating, a one- or two-sentence summary,
+  1-3 evidence quotes copied exactly from the transcript with their line number and speaker, the PCC
+  markers of that competency you observed or clearly missed, strengths, and growth areas.
+- Rate only what the transcript shows. With no evidence, use "not_observed" and say so; don't infer.
+- Make growth areas concrete: point to the moment (line) and suggest the question or move that would
+  have met the marker.
+- Estimate who did most of the talking (PCC marker 7.8).
+- Coach action items: 2-4 things the coach can practise next session. Client action items: what the
+  client committed to, in their words.
+
+## Output
+Respond with JSON only, in exactly this shape. "competencies" must hold 8 entries, ids 1-8, and each
+entry's "pcc_markers" may only use that competency's marker ids.
+{{
+  "scorecard": {{
+    "rubric_version": "icf-pcc-v1",
+    "overall_alignment": {{"rating": "meets_pcc", "summary": "..."}},
+    "competencies": [
+      {{
+        "id": 1, "name": "Demonstrates Ethical Practice", "rating": "meets_pcc", "summary": "...",
+        "evidence": [{{"quote": "...", "line": 12, "speaker": "Coach"}}],
+        "pcc_markers": [],
+        "strengths": ["..."], "growth_areas": ["..."], "citations": ["<context library id>"]
+      }}
+    ],
+    "top_strengths": ["..."],
+    "top_growth_areas": ["..."],
+    "coach_action_items": ["..."],
+    "client_action_items": ["..."],
+    "talk_ratio_estimate": "client about 70%, coach about 30%"
+  }},
+  "client_summary": "..."
+}}
+
+"client_summary" is written to the client: a warm, plain-prose summary of what they explored, the
+insights they named and the actions they committed to. It must not mention ratings, the ICF rubric
+or any assessment of the coach.
 $tpl$, 1),
-('annual_review', 'pre', 'Annual Strategic Review — Pre-Session Prep', $tpl$You are preparing a coach for an upcoming Annual Strategic Review.
+('annual_review', 'pre', 'Annual Strategic Review — Pre-Session Prep', 'Runs 10 working days before each Annual Strategic Review (adjustable in reminder rules), and when the coach opens the session''s prep. Uses the client profile, the most relevant Context Library entries and past Annual Strategic Reviews with this client. Produces the coach-only prep briefing shown in the dashboard and a prep email draft that waits in Approvals. Nothing is sent without the coach''s approval.', $tpl$You are preparing a coach for an upcoming Annual Strategic Review.
 
 ## Client profile
 {client_profile}
@@ -480,21 +570,68 @@ Produce a JSON object with these keys:
 
 Respond with JSON only, matching this shape exactly.
 $tpl$, 1),
-('annual_review', 'post', 'Annual Strategic Review — Post-Session Scorecard & Summary', $tpl$You are producing the post-session artifacts for an Annual Strategic Review
-that just occurred.
+('annual_review', 'post', 'Annual Strategic Review — Post-Session ICF Critique & Summary', 'Runs when a Annual Strategic Review transcript is linked to its session, or when the coach clicks Analyse session. Uses the numbered transcript, the ICF rubric (8 core competencies, 37 PCC markers), the Context Library and the client profile. Produces a coach-only ICF critique (a rating per competency with transcript evidence, strengths and where to improve) and a client summary draft that waits in Approvals.', $tpl$You are an experienced ICF assessor (MCC level) reviewing a Annual Strategic Review that has just taken place.
+Give the coach an honest, specific, evidence-based critique of their coaching against the ICF Core
+Competencies and PCC markers, so they can see where they meet the standard and where to improve.
+Only the coach sees this critique.
 
-## Transcript (normalized)
-{transcript}
+## ICF rubric
+{icf_rubric}
 
-## Context Library (ICF competencies + GROW model, relevant slice)
+## Context Library (ICF material, GROW model, this client's notes)
+Each entry is headed with its id. When a judgement relies on an entry, put its id in "citations".
 {context_library}
 
 ## Client profile
 {client_profile}
 
-Respond with JSON only: {{"scorecard": {{...with "citations"...}}, "client_summary": "..."}}.
+## Transcript
+Lines are numbered L1, L2, ... Quote word for word and give the line number.
+{transcript}
+
+## Focus for this session
+An Annual Strategic Review, with an individual or a company team. Pay particular attention to: exploring the year's growth and who the client is becoming (5.1, 7.2, 8.2); acknowledging progress (8.8); and clear agreements for the year ahead (3.1–3.4). If this is a team session, assess whether the coach drew in every voice.
+
+## How to assess
+- Assess all 8 competencies, in order. For each give: a rating, a one- or two-sentence summary,
+  1-3 evidence quotes copied exactly from the transcript with their line number and speaker, the PCC
+  markers of that competency you observed or clearly missed, strengths, and growth areas.
+- Rate only what the transcript shows. With no evidence, use "not_observed" and say so; don't infer.
+- Make growth areas concrete: point to the moment (line) and suggest the question or move that would
+  have met the marker.
+- Estimate who did most of the talking (PCC marker 7.8).
+- Coach action items: 2-4 things the coach can practise next session. Client action items: what the
+  client committed to, in their words.
+
+## Output
+Respond with JSON only, in exactly this shape. "competencies" must hold 8 entries, ids 1-8, and each
+entry's "pcc_markers" may only use that competency's marker ids.
+{{
+  "scorecard": {{
+    "rubric_version": "icf-pcc-v1",
+    "overall_alignment": {{"rating": "meets_pcc", "summary": "..."}},
+    "competencies": [
+      {{
+        "id": 1, "name": "Demonstrates Ethical Practice", "rating": "meets_pcc", "summary": "...",
+        "evidence": [{{"quote": "...", "line": 12, "speaker": "Coach"}}],
+        "pcc_markers": [],
+        "strengths": ["..."], "growth_areas": ["..."], "citations": ["<context library id>"]
+      }}
+    ],
+    "top_strengths": ["..."],
+    "top_growth_areas": ["..."],
+    "coach_action_items": ["..."],
+    "client_action_items": ["..."],
+    "talk_ratio_estimate": "client about 70%, coach about 30%"
+  }},
+  "client_summary": "..."
+}}
+
+"client_summary" is written to the client: a warm, plain-prose summary of what they explored, the
+insights they named and the actions they committed to. It must not mention ratings, the ICF rubric
+or any assessment of the coach.
 $tpl$, 1),
-('monthly_council', 'pre', 'Monthly Strategic Council — Pre-Session Prep', $tpl$You are preparing a coach for an upcoming Monthly Strategic Council session.
+('monthly_council', 'pre', 'Monthly Strategic Council — Pre-Session Prep', 'Runs 5 working days before each Monthly Strategic Council (adjustable in reminder rules), and when the coach opens the session''s prep. Uses the client profile, the most relevant Context Library entries and past Monthly Strategic Councils with this client. Produces the coach-only prep briefing shown in the dashboard and a prep email draft that waits in Approvals. Nothing is sent without the coach''s approval.', $tpl$You are preparing a coach for an upcoming Monthly Strategic Council session.
 
 ## Client profile
 {client_profile}
@@ -515,19 +652,66 @@ Produce a JSON object with these keys:
 
 Respond with JSON only, matching this shape exactly.
 $tpl$, 1),
-('monthly_council', 'post', 'Monthly Strategic Council — Post-Session Scorecard & Summary', $tpl$You are producing the post-session artifacts for a Monthly Strategic Council
-session that just occurred.
+('monthly_council', 'post', 'Monthly Strategic Council — Post-Session ICF Critique & Summary', 'Runs when a Monthly Strategic Council transcript is linked to its session, or when the coach clicks Analyse session. Uses the numbered transcript, the ICF rubric (8 core competencies, 37 PCC markers), the Context Library and the client profile. Produces a coach-only ICF critique (a rating per competency with transcript evidence, strengths and where to improve) and a client summary draft that waits in Approvals.', $tpl$You are an experienced ICF assessor (MCC level) reviewing a Monthly Strategic Council that has just taken place.
+Give the coach an honest, specific, evidence-based critique of their coaching against the ICF Core
+Competencies and PCC markers, so they can see where they meet the standard and where to improve.
+Only the coach sees this critique.
 
-## Transcript (normalized)
-{transcript}
+## ICF rubric
+{icf_rubric}
 
-## Context Library (ICF competencies + GROW model, relevant slice)
+## Context Library (ICF material, GROW model, this client's notes)
+Each entry is headed with its id. When a judgement relies on an entry, put its id in "citations".
 {context_library}
 
 ## Client profile
 {client_profile}
 
-Respond with JSON only: {{"scorecard": {{...with "citations"...}}, "client_summary": "..."}}.
+## Transcript
+Lines are numbered L1, L2, ... Quote word for word and give the line number.
+{transcript}
+
+## Focus for this session
+A Monthly Strategic Council, with an individual or a company team. Pay particular attention to: holding focus and time (3.1, 5.3); challenging without attachment (7.5); and clear actions with accountability (8.6, 8.7). If this is a team session, assess whether the coach drew in every voice.
+
+## How to assess
+- Assess all 8 competencies, in order. For each give: a rating, a one- or two-sentence summary,
+  1-3 evidence quotes copied exactly from the transcript with their line number and speaker, the PCC
+  markers of that competency you observed or clearly missed, strengths, and growth areas.
+- Rate only what the transcript shows. With no evidence, use "not_observed" and say so; don't infer.
+- Make growth areas concrete: point to the moment (line) and suggest the question or move that would
+  have met the marker.
+- Estimate who did most of the talking (PCC marker 7.8).
+- Coach action items: 2-4 things the coach can practise next session. Client action items: what the
+  client committed to, in their words.
+
+## Output
+Respond with JSON only, in exactly this shape. "competencies" must hold 8 entries, ids 1-8, and each
+entry's "pcc_markers" may only use that competency's marker ids.
+{{
+  "scorecard": {{
+    "rubric_version": "icf-pcc-v1",
+    "overall_alignment": {{"rating": "meets_pcc", "summary": "..."}},
+    "competencies": [
+      {{
+        "id": 1, "name": "Demonstrates Ethical Practice", "rating": "meets_pcc", "summary": "...",
+        "evidence": [{{"quote": "...", "line": 12, "speaker": "Coach"}}],
+        "pcc_markers": [],
+        "strengths": ["..."], "growth_areas": ["..."], "citations": ["<context library id>"]
+      }}
+    ],
+    "top_strengths": ["..."],
+    "top_growth_areas": ["..."],
+    "coach_action_items": ["..."],
+    "client_action_items": ["..."],
+    "talk_ratio_estimate": "client about 70%, coach about 30%"
+  }},
+  "client_summary": "..."
+}}
+
+"client_summary" is written to the client: a warm, plain-prose summary of what they explored, the
+insights they named and the actions they committed to. It must not mention ratings, the ICF rubric
+or any assessment of the coach.
 $tpl$, 1);
 
 -- Nothing in the public schema is reachable with the anon or authenticated

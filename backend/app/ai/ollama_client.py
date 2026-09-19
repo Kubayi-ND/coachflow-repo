@@ -8,7 +8,7 @@ from app.core.config import get_settings
 
 async def generate(prompt: str, *, structured: bool = False, model: str | None = None) -> GeminiResult:
     """Self-hosted equivalent of app/ai/gemini_client.py's generate() — same
-    return shape so scorecard_generator.py / draft_generator.py can swap the
+    return shape so post_session.py / draft_generator.py can swap the
     import without other changes. structured=True asks Ollama's JSON mode for
     the same prompt-driven JSON contract Gemini's response_mime_type gave us;
     unlike Gemini there's no SDK-level schema enforcement, so a malformed

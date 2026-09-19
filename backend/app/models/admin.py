@@ -16,6 +16,7 @@ class PromptTemplate(CamelModel):
     session_type: SessionType
     phase: str  # "pre" | "post"
     title: str  # clear heading, e.g. "1-on-1 — Pre-Session Prep"
+    description: str | None = None  # what it does, when it runs, what it produces
     body: str
     version: int
     created_at: str
@@ -25,11 +26,13 @@ class PromptTemplateCreate(CamelModel):
     session_type: SessionType
     phase: str
     title: str
+    description: str | None = None
     body: str
 
 
 class PromptTemplateVersion(CamelModel):
     title: str
+    description: str | None = None  # omitted = keep the current version's description
     body: str
 
 

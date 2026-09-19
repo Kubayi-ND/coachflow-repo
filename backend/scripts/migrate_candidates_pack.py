@@ -117,7 +117,15 @@ def _extract_text(path: Path) -> str:
     elif path.suffix == ".pdf":
         text = _extract_pdf_text(path.read_bytes())
     else:
-        text = path.read_text(encoding="utf-8", errors="replace")
+        raw = path.read_bytes()
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            # The ICF competencies .txt is a classic-Mac export (Mac Roman,
+            # bare CR line endings); decoding it as UTF-8 garbles every
+            # curly quote and dash the critique prompt quotes back.
+            text = raw.decode("mac_roman")
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
     return text.replace("\x00", "")  # Postgres text columns reject NUL bytes some PDF extractions leave in
 
 

@@ -12,7 +12,7 @@ a client (see resolve_import_item).
 """
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -40,6 +40,7 @@ from app.services.client_matching import (
 from app.services.client_matching import match_client_by_name as _match_client_by_name
 from app.services.context_library_admin import create_context_library_entry_with_embedding
 from app.services.document_extractor import extract_text
+from app.services.post_session import analyse_linked_session
 from app.services.transcript_normalizer import normalize
 from app.session_types_generated import SESSION_TYPES
 
@@ -285,12 +286,15 @@ async def insert_transcript_and_link(
     source: TranscriptSource,
     raw_bytes: bytes,
     created_time_iso: str | None,
-) -> None:
+    *,
+    analyse: bool = True,
+) -> UUID | None:
     """The Drive-independent core of transcript ingestion — normalize, insert
-    into transcripts, best-effort link to the closest historical session.
-    Shared with services/local_backfill.py, which reads bytes off disk
-    instead of downloading them from Drive but needs the exact same
-    insert/link behavior."""
+    into transcripts, best-effort link to the closest historical session,
+    then run the post-session ICF analysis for that session. Shared with
+    services/local_backfill.py, which reads bytes off disk instead of
+    downloading them from Drive but needs the exact same insert/link
+    behavior. Returns the linked session id, or None if it wasn't linked."""
     normalized = normalize(raw_bytes, source, attendee_names=[])
 
     result = (
@@ -308,12 +312,41 @@ async def insert_transcript_and_link(
     )
     transcript_row = row_of(result)
     if transcript_row is None:
-        return
+        return None
 
     session = await _closest_session_for_client(client.id, created_time_iso)
-    if session is not None:
-        get_supabase().table("sessions").update({"transcript_id": transcript_row["id"]}).eq("id", session["id"]).execute()
-        get_supabase().table("transcripts").update({"session_id": session["id"]}).eq("id", transcript_row["id"]).execute()
+    if session is None:
+        return None
+    session_id = UUID(session["id"])
+    link_transcript_to_session(UUID(transcript_row["id"]), session_id)
+    if analyse:
+        await analyse_linked_session(session_id)
+    return session_id
+
+
+def link_transcript_to_session(transcript_id: UUID, session_id: UUID) -> None:
+    get_supabase().table("sessions").update({"transcript_id": str(transcript_id)}).eq("id", str(session_id)).execute()
+    get_supabase().table("transcripts").update({"session_id": str(session_id)}).eq("id", str(transcript_id)).execute()
+
+
+async def find_recent_session_for_tenant(tenant_id: str, now: datetime | None = None) -> UUID | None:
+    """For a transcript that just landed in a tenant's Drive inbox with no
+    client attached: the one session in that tenant that ended within the
+    link window and has no transcript yet. Two or more candidates is
+    ambiguous, so nothing is linked (the coach can still attach it later) —
+    never guess which client a transcript belongs to."""
+    now = now or datetime.now(UTC)
+    rows = rows_of(
+        get_supabase()
+        .table("sessions")
+        .select("id, event_date, transcript_id")
+        .eq("tenant_id", tenant_id)
+        .gte("event_date", (now - _MAX_TRANSCRIPT_LINK_DISTANCE).isoformat())
+        .lte("event_date", now.isoformat())
+        .execute()
+    )
+    candidates = [row for row in rows if row.get("transcript_id") is None]
+    return UUID(candidates[0]["id"]) if len(candidates) == 1 else None
 
 
 async def _closest_session_for_client(client_id: UUID, reference_iso: str | None) -> dict[str, Any] | None:

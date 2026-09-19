@@ -137,3 +137,23 @@ async def test_import_calendar_backfill_sends_team_capable_session_types_to_unma
     tables_written = [call.args[0] for call in mock_get_supabase.return_value.table.call_args_list]
     assert "unmatched_events" in tables_written
     assert "sessions" not in tables_written
+
+
+@pytest.mark.asyncio
+async def test_recent_session_lookup_links_only_an_unambiguous_session():
+    from unittest.mock import MagicMock
+
+    def fake(rows):
+        supabase = MagicMock()
+        chain = supabase.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value
+        chain.execute.return_value.data = rows
+        return supabase
+
+    one = [{"id": str(uuid4()), "event_date": "2026-09-18T10:00:00+00:00", "transcript_id": None}]
+    two = one + [{"id": str(uuid4()), "event_date": "2026-09-18T11:00:00+00:00", "transcript_id": None}]
+    already_linked = [{**one[0], "transcript_id": str(uuid4())}]
+
+    for rows, expected in ((one, one[0]["id"]), (two, None), (already_linked, None)):
+        with patch("app.services.drive_backfill.get_supabase", return_value=fake(rows)):
+            found = await drive_backfill.find_recent_session_for_tenant("tenant_a")
+        assert (str(found) if found else None) == expected

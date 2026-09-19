@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.ai.gemini_client import generate
+from app.ai.prompt_render import render_prompt
 from app.core.security import (
     accessible_client_ids,
     assert_client_access,
@@ -18,6 +19,7 @@ from app.db.repository import (
     row_of,
     save_coach_briefing,
 )
+from app.models.scorecard import Scorecard
 from app.models.session import (
     Session,
     SessionHistoryItem,
@@ -27,6 +29,7 @@ from app.models.session import (
 )
 from app.models.user import User
 from app.services.context_builder import build_context, load_prior_sessions, resolve_retrieval_scope
+from app.services.post_session import PostSessionError, run_post_session_analysis
 
 router = APIRouter()
 
@@ -61,7 +64,7 @@ async def get_session_prep(
         template = await get_current_prompt_template(session.type, "pre")
         if template is None:
             raise HTTPException(status_code=409, detail="No pre-session prompt configured")
-        result = await generate(template["body"].format(**context.as_prompt_vars()), structured=True)
+        result = await generate(render_prompt(template["body"], context.as_prompt_vars()), structured=True)
         keypoints = result.as_json()["keypoints"]
         await save_coach_briefing(session.id, keypoints)
         prior_sessions = context.prior_sessions
@@ -90,6 +93,39 @@ async def get_session_prep(
         citations=scorecard_row.get("citations", []) if scorecard_row else [],
         history=history,
     )
+
+
+_ANALYSIS_ERROR_STATUS = {
+    "no_transcript": 409,
+    "transcript_unusable": 409,
+    "no_template": 409,
+    "invalid_output": 502,
+}
+
+
+@router.post("/{session_id}/analysis", response_model=Scorecard)
+async def run_session_analysis(
+    session_id: UUID, refresh: bool = False, user: User = Depends(get_current_user)
+) -> Scorecard:
+    """Coach-triggered ICF critique of a held session (services/post_session.py).
+    Returns the stored critique; `refresh=true` regenerates it. Also creates
+    the client summary as a pending Approvals draft the first time."""
+    await assert_session_access(user, session_id)
+    try:
+        await run_post_session_analysis(session_id, force=refresh)
+    except PostSessionError as exc:
+        raise HTTPException(status_code=_ANALYSIS_ERROR_STATUS[exc.reason], detail=str(exc)) from exc
+    row = row_of(
+        get_supabase()
+        .table("scorecards")
+        .select("*")
+        .eq("session_id", str(session_id))
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    assert row is not None
+    return Scorecard(**row)
 
 
 @router.get("/unmatched-events", response_model=list[UnmatchedEvent])

@@ -408,7 +408,7 @@ async def match_context_library(query_embedding: list[float], client_id: UUID, m
 
 # --- Prompt templates --------------------------------------------------------
 # Same append-only shape as Context Library. get_current_prompt_template is
-# the read path draft_generator.py and scorecard_generator.py call at
+# the read path draft_generator.py and post_session.py call at
 # generation time — this table (via its `_current` view) is the live source
 # of prompt text, not just an editor's backing store.
 
@@ -441,7 +441,9 @@ async def get_current_prompt_template(session_type: SessionType, phase: str) -> 
     return row_of(result)
 
 
-async def create_prompt_template(session_type: SessionType, phase: str, title: str, body: str) -> dict[str, Any]:
+async def create_prompt_template(
+    session_type: SessionType, phase: str, title: str, body: str, description: str | None = None
+) -> dict[str, Any]:
     existing = row_of(
         get_supabase()
         .table("prompt_templates_current")
@@ -456,7 +458,16 @@ async def create_prompt_template(session_type: SessionType, phase: str, title: s
     result = (
         get_supabase()
         .table("prompt_templates")
-        .insert({"session_type": session_type.value, "phase": phase, "title": title, "body": body, "version": 1})
+        .insert(
+            {
+                "session_type": session_type.value,
+                "phase": phase,
+                "title": title,
+                "description": description,
+                "body": body,
+                "version": 1,
+            }
+        )
         .execute()
     )
     row = row_of(result)
@@ -464,7 +475,11 @@ async def create_prompt_template(session_type: SessionType, phase: str, title: s
     return row
 
 
-async def post_prompt_template_version(entry_group_id: UUID, title: str, body: str) -> dict[str, Any]:
+async def post_prompt_template_version(
+    entry_group_id: UUID, title: str, body: str, description: str | None = None
+) -> dict[str, Any]:
+    """Appends the next version. A description that isn't given carries over
+    from the current version, so editing a prompt's text never loses it."""
     current = row_of(
         get_supabase()
         .table("prompt_templates_current")
@@ -484,6 +499,7 @@ async def post_prompt_template_version(entry_group_id: UUID, title: str, body: s
                 "session_type": current["session_type"],
                 "phase": current["phase"],
                 "title": title,
+                "description": description if description is not None else current.get("description"),
                 "body": body,
                 "version": current["version"] + 1,
             }

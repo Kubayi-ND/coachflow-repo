@@ -245,3 +245,31 @@ def test_coach_cannot_change_a_clients_email():
         response = _as(_coach()).put(f"/api/clients/{CLIENT_A}", json={"email": "someone@else.com"})
     assert response.status_code == 403
     mock_update.assert_not_called()
+
+
+def test_coach_cannot_analyse_another_clients_session():
+    session = _session(CLIENT_B)
+    mock_run = AsyncMock()
+    with (
+        patch("app.core.security.get_session_by_id", new=AsyncMock(return_value=session)),
+        patch("app.api.routes.sessions.run_post_session_analysis", new=mock_run),
+    ):
+        response = _as(_coach()).post(f"/api/sessions/{session.id}/analysis")
+    assert response.status_code == 403
+    mock_run.assert_not_called()
+
+
+def test_analysis_without_a_transcript_is_409():
+    from app.services.post_session import PostSessionError
+
+    session = _session(CLIENT_A)
+    with (
+        patch("app.core.security.get_session_by_id", new=AsyncMock(return_value=session)),
+        patch(
+            "app.api.routes.sessions.run_post_session_analysis",
+            new=AsyncMock(side_effect=PostSessionError("no_transcript", "No transcript is linked")),
+        ),
+    ):
+        response = _as(_coach()).post(f"/api/sessions/{session.id}/analysis")
+    assert response.status_code == 409
+    assert response.json()["detail"] == "No transcript is linked"
